@@ -18,3 +18,10 @@ Không có tuyên bố bản này đã hoàn tất kiểm thử vận hành trê
 
 ## Bổ sung Render/Aiven
 46 kiểm thử đạt sau bổ sung TLS Aiven và chế độ REQUIRE_DRIVE_BEFORE_ACK: không xác nhận video khi Drive lỗi; tải lại cùng clip phục hồi file tạm bị mất. Build TypeScript/Vite đạt. Chưa kết nối Aiven/Render hoặc Google OAuth thật. Hướng dẫn triển khai ở HUONG-DAN-RENDER.md.
+
+## Cập nhật quét tem và danh sách điện thoại
+- Thay bộ đọc camera bằng ZXing-C++ WebAssembly được phục vụ cùng ứng dụng; không gửi ảnh/mã sang dịch vụ giải mã bên ngoài.
+- 29 kiểm thử core/queue/Drive và 2 kiểm thử QR + Code128 tổng hợp đạt. TypeScript/Vite build đạt.
+- Đã giải mã QR của ảnh tem người dùng cung cấp ở máy cục bộ và trong giao diện trình duyệt, nhận đúng vận đơn và đơn tương ứng. Ảnh và dữ liệu chẩn đoán không được commit.
+- Đã thử thẻ đơn gọn, mở/đóng popup, chuyển từ popup sang bàn đóng hàng; kiểm tra không tràn ngang ở kích thước điện thoại.
+- Chưa kiểm tra quét trực tiếp bằng phần cứng iPhone trong đợt sửa này. Quét ảnh là phương án dự phòng: nhận diện rồi người dùng kiểm tra và bấm bắt đầu quay. Quét trực tiếp vẫn tự quay khi khớp duy nhất một đơn.
