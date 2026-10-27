@@ -26,3 +26,5 @@ test('production refuses insecure origin and missing secrets',()=>{assert.throws
 
 
 test('Aiven TLS validates certificates and accepts escaped PEM newlines',()=>{const before={...process.env};try{process.env.DB_SSL='true';process.env.DB_SSL_CA='BEGIN\\nEND';const c=makeConfig({secret:'x'.repeat(40)});assert.equal(c.db.ssl.rejectUnauthorized,true);assert.equal(c.db.ssl.ca,'BEGIN\nEND');}finally{for(const key of ['DB_SSL','DB_SSL_CA']){if(before[key]===undefined)delete process.env[key];else process.env[key]=before[key];}}});
+
+test('Shopee products without variants parse and order ID X5641 is never quantity',async()=>{const {sellerParser:p}=await import('../lib/seller-parser.mjs');const o=p.parseCard('nguyenvietnam1984\nMã đơn hàng 261027NXSX5641\nMắt Kiểm Tra Động Cơ Xe Đạp Điện\nx1\n[MAYDO]\n135.250\nChờ lấy hàng');assert.equal(o.items.length,1);assert.equal(o.items[0].qty,1);assert.equal(o.items[0].variant,'');assert.equal(p.parseCard('Mã đơn hàng 261027NXSX5641\nVariation: 84V').items.length,0);});
