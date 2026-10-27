@@ -1,0 +1,1 @@
+import {makeConfig} from './config.mjs';import {createDb,migrate} from './db.mjs';const db=createDb(makeConfig());try{await migrate(db);console.log('ShopFlow database schema is ready.');}finally{await db.close();}

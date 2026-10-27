@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "ShopFlow · Lấy đơn Shopee",
+  "version": "0.2.0",
+  "description": "Đọc đơn đang hiển thị trên Kênh Người bán và gửi bản xem trước vào ShopFlow.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ]
+}
