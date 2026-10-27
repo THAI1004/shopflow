@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ShopFlow · Lấy đơn Shopee",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Đọc đơn đang hiển thị trên Kênh Người bán và gửi bản xem trước vào ShopFlow.",
   "permissions": [
     "activeTab",
