@@ -15,3 +15,6 @@
 - Video giảm dung lượng khi ghi, không có bước chuyển mã nén lại sau quay trên server. Khả năng/bitrate thực tế phụ thuộc trình duyệt; cần xác minh chất lượng tem và dung lượng trên iPhone.
 
 Không có tuyên bố bản này đã hoàn tất kiểm thử vận hành trên Shopee/iPhone/hosting thật.
+
+## Bổ sung Render/Aiven
+46 kiểm thử đạt sau bổ sung TLS Aiven và chế độ REQUIRE_DRIVE_BEFORE_ACK: không xác nhận video khi Drive lỗi; tải lại cùng clip phục hồi file tạm bị mất. Build TypeScript/Vite đạt. Chưa kết nối Aiven/Render hoặc Google OAuth thật. Hướng dẫn triển khai ở HUONG-DAN-RENDER.md.
