@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "ShopFlow · Doanh Số Thực Nhận Shopee",
+  "version": "1.0.6",
+  "description": "Đọc đơn hàng Shopee theo từng tab (Chờ lấy hàng, Đang giao, Đã giao) để tính doanh số thực nhận, tiền khách trả, phí sàn và đồng bộ về ShopFlow.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://banhang.shopee.vn/*",
+    "https://shopflow-2zbb.onrender.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ShopFlow · Doanh Số Thực Nhận"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://banhang.shopee.vn/*"],
+      "js": ["injected-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://banhang.shopee.vn/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://shopflow-2zbb.onrender.com/*",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*",
+        "http://localhost:5174/*",
+        "http://127.0.0.1:5174/*",
+        "https://shopflow-dong-hang-thaiz.thaizzbbl.chatgpt.site/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected-hook.js", "parser.js"],
+      "matches": ["https://banhang.shopee.vn/*"]
+    }
+  ]
+}

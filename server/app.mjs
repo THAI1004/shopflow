@@ -61,15 +61,26 @@ export async function createApp({db,config,fetchImpl=fetch}){
   throw httpError(400,'Thao tác không hợp lệ.');
  });
  app.get('/api/store',async(req,res)=>{
-  const a=await shopAccess(req,db);const [orders,videos,events]=await Promise.all([
+  const a=await shopAccess(req,db);const [orders,videos,events,revenueOrders]=await Promise.all([
    db.query('SELECT * FROM orders WHERE shop=? ORDER BY updated_at DESC LIMIT 5000',[a.shop]),
    db.query('SELECT id,order_id,mime,bytes,duration,created_at,recorded_at,audio,drive_id,drive_status FROM videos WHERE shop=? ORDER BY created_at DESC LIMIT 5000',[a.shop]),
-   db.query('SELECT * FROM events WHERE shop=? ORDER BY at DESC LIMIT 100',[a.shop])]);
+   db.query('SELECT * FROM events WHERE shop=? ORDER BY at DESC LIMIT 100',[a.shop]),
+   db.query('SELECT * FROM revenue_orders WHERE shop=? ORDER BY updated_at DESC LIMIT 5000',[a.shop]).catch(()=>[])]);
   const revision=(await db.first('SELECT revision FROM shops WHERE id=?',[a.shop])).revision;
-  res.json({orders:orders.map(o=>({...JSON.parse(o.data),importedDay:JSON.parse(o.data).importedDay||day(o.updated_at),packedAt:o.packed_at,updatedAt:o.updated_at})),videos,events,revision});
+  res.json({orders:orders.map(o=>({...JSON.parse(o.data),importedDay:JSON.parse(o.data).importedDay||day(o.updated_at),packedAt:o.packed_at,updatedAt:o.updated_at})),revenueOrders:(revenueOrders||[]).map(r=>({...JSON.parse(r.data),updatedAt:r.updated_at})),videos,events,revision});
  });
  app.post('/api/store',async(req,res)=>{
   const a=await shopAccess(req,db),b=req.body||{};
+  if(b.action==='save_revenue'){
+   const list=Array.isArray(b.orders)?b.orders:[];
+   await db.transaction(async tx=>{for(const r of list){if(!r?.id)continue;await tx.query('INSERT INTO revenue_orders(shop,id,data,updated_at) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE data=VALUES(data),updated_at=VALUES(updated_at)',[a.shop,String(r.id).trim().toUpperCase(),JSON.stringify(r),now()]);}await recordEvent(tx,a.shop,a.user,'REVENUE',`Đồng bộ ${list.length} đơn doanh số thực nhận`);await bump(tx,a.shop);});
+   res.json({ok:true,count:list.length});return;
+  }
+  if(b.action==='delete_revenue'){
+   if(b.id==='all')await db.query('DELETE FROM revenue_orders WHERE shop=?',[a.shop]);
+   else if(b.id)await db.query('DELETE FROM revenue_orders WHERE shop=? AND id=?',[a.shop,String(b.id).trim().toUpperCase()]);
+   await bump(db,a.shop);res.json({ok:true});return;
+  }
   if(b.action==='import'){let count;try{count=await importOrders(db,a,b.orders);}catch(e){if(!e.status&&!(e.code||'').startsWith('ER_'))e.status=400;throw e;}res.json({ok:true,count});return;}
   if(b.action==='delete'||b.action==='restore'){await db.transaction(async tx=>{const row=await tx.first('SELECT data,updated_at FROM orders WHERE shop=? AND id=? FOR UPDATE',[a.shop,String(b.id)]);if(!row)throw httpError(404,'Không tìm thấy đơn.');const data=JSON.parse(row.data);data.importedDay=data.importedDay||day(row.updated_at);if(b.action==='delete')data.deletedAt=now();else delete data.deletedAt;await tx.query('UPDATE orders SET data=?,updated_at=? WHERE shop=? AND id=?',[JSON.stringify(data),now(),a.shop,String(b.id)]);await recordEvent(tx,a.shop,a.user,String(b.id),b.action==='delete'?'Xóa đơn khỏi danh sách và phiếu kho':'Khôi phục đơn');await bump(tx,a.shop);});res.json({ok:true});return;}
   if(b.action==='unpack'){await db.transaction(async tx=>{const o=await tx.first('SELECT id FROM orders WHERE shop=? AND id=? FOR UPDATE',[a.shop,String(b.id)]);if(!o)throw httpError(404,'Không tìm thấy đơn.');await tx.query('UPDATE orders SET packed_at=NULL,updated_at=? WHERE shop=? AND id=?',[now(),a.shop,o.id]);await recordEvent(tx,a.shop,a.user,o.id,'Mở lại đơn để đóng lại');await bump(tx,a.shop);});res.json({ok:true});return;}
