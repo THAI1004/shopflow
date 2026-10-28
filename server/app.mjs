@@ -73,6 +73,9 @@ export async function createApp({db,config,fetchImpl=fetch}){
   const a=await shopAccess(req,db),b=req.body||{};
   if(b.action==='save_revenue'){
    const list=Array.isArray(b.orders)?b.orders:[];
+   try {
+     await db.query(`CREATE TABLE IF NOT EXISTS revenue_orders (shop CHAR(36) NOT NULL, id VARCHAR(50) NOT NULL, data LONGTEXT NOT NULL, updated_at VARCHAR(30) NOT NULL, PRIMARY KEY(shop,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+   } catch(e){}
    await db.transaction(async tx=>{for(const r of list){if(!r?.id)continue;await tx.query('INSERT INTO revenue_orders(shop,id,data,updated_at) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE data=VALUES(data),updated_at=VALUES(updated_at)',[a.shop,String(r.id).trim().toUpperCase(),JSON.stringify(r),now()]);}await recordEvent(tx,a.shop,a.user,'REVENUE',`Đồng bộ ${list.length} đơn doanh số thực nhận`);await bump(tx,a.shop);});
    res.json({ok:true,count:list.length});return;
   }
