@@ -600,7 +600,7 @@
 
     // Extract all orders from document with automatic finalAmount resolution
     async extract(doc = document, onProgress = null) {
-      if(location.pathname.startsWith('/portal/finance/income')){if(!globalThis.ShopFlowFinanceParser)throw Error('Tải lại extension để bật bộ đọc Chưa thanh toán.');return globalThis.ShopFlowFinanceParser.extract(doc);}
+      if(location.pathname.startsWith('/portal/finance/income')){if(!globalThis.ShopFlowFinanceParser)throw Error('Tải lại extension để bật bộ đọc Chưa thanh toán.');return globalThis.ShopFlowFinanceParser.extractAll(doc);}
       const isDetail = window.location.pathname.includes('/portal/sale/order/') && !window.location.search.includes('type=');
       if (isDetail) {
         return {

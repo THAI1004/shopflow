@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ShopFlow · Trợ Lý Bán Hàng & Nhân Bản Shopee",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "Đọc doanh số thực nhận Shopee, gộp đơn 3 tab, nhân bản sản phẩm lách AI chống quét trùng lặp và tự động điền form thêm sản phẩm shop vệ tinh.",
   "permissions": [
     "activeTab",

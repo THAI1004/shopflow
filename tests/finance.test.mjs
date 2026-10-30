@@ -7,3 +7,11 @@ test('finance merge keeps products and confirmed revenue, updates pending amount
 
 test('Shopee overall unpaid total stays separate from partial row sum',()=>{const r=parse([['261030ABCDEFGH','','Đang thanh toán','COD','₫5.704.712']],{overview:'17.052.917'});assert.equal(r.payoutOverviewTotal,17052917);assert.equal(r.pendingPayoutTotal,5704712);assert.equal(r.orders[0].payoutOverviewTotal,17052917);const merged=mergeRevenueOrders([],r.orders);assert.equal(merged[0].payoutOverviewTotal,17052917);});
 test('missing overview never substitutes the partial row sum as shop total',()=>{const r=parse([['261030ABCDEFGH','','Đang thanh toán','COD','₫5.704.712']]);assert.equal(r.payoutOverviewTotal,null);assert.equal(r.pendingPayoutTotal,5704712);});
+
+test('negative fee adjustments subtract from unread payout total',()=>{const r=parse([['261030ABCDEFGH','','Đang tính toán phí','COD','-₫2.700'],['261030ZXCVBNMQ','','Đang thanh toán','COD','₫10.000']]);assert.equal(r.orders[0].pendingPayout,-2700);assert.equal(r.pendingPayoutTotal,7300);});
+test('automatic scrolling collects all 60 virtual rows instead of only current viewport',async()=>{
+ const all=Array.from({length:60},(_,n)=>{const id='261030'+String(n).padStart(8,'0'),values=[id,'','Đang thanh toán','COD','₫10.000'];return {textContent:values.join(' '),querySelectorAll(){return values.map(textContent=>({textContent}));}};});
+ let top=0;const root={clientHeight:500,scrollHeight:3000,get scrollTop(){return top;},set scrollTop(value){top=Math.min(2500,value);}};
+ const doc={scrollingElement:root,querySelector(){return {textContent:'Chưa thanh toán'};},querySelectorAll(selector){if(selector.startsWith('th,'))return ['Đơn hàng','Ngày','Trạng thái','Phương thức','Số tiền chưa thanh toán'].map(textContent=>({textContent}));if(selector.startsWith('tr,'))return all.slice(Math.floor(top/50),Math.floor(top/50)+10);return [];}};
+ const context={URL,location:{href:'https://banhang.shopee.vn/portal/finance/income?type=1'},setTimeout(fn){fn();}};vm.runInNewContext(source,context);const result=await context.ShopFlowFinanceParser.extractAll(doc);assert.equal(result.orders.length,60);assert.equal(result.pendingPayoutTotal,600000);assert.equal(context.__SHOPFLOW_FINANCE_READING__,false);
+});

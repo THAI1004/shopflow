@@ -44,7 +44,7 @@ function updateKPI() {
     totalBuyer += buyerAmt;
     totalFinal += finalAmt;
 
-    if (o.isPendingFinal) pendingExactCount++;
+    if (o.isPendingFinal && o.finalAmount > 0) pendingExactCount++;
 
     const st = String(o.status || '');
     if (/chờ lấy hàng/i.test(st)) countPending++;
@@ -112,7 +112,7 @@ async function load() {
 el('btnRead').onclick = async () => {
   el('btnRead').disabled = true;
   el('btnRead').innerHTML = '<span>⏳</span> Đang đọc & đối soát...';
-  el('log').textContent = '⏳ Đang quét danh sách và lấy doanh số thực nhận Shopee (hạch toán chi tiết)...';
+  el('log').textContent = '⏳ Đang đọc. Với Chưa thanh toán: tự cuộn danh sách và tìm trang tiếp, tối đa 50 giây. Giữ popup mở và không đổi tab.';
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
