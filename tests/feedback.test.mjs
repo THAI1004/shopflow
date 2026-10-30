@@ -1,3 +1,11 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {createScanFeedback} from '../lib/feedback.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {createScanFeedback,packingAnnouncement} from '../lib/feedback.mjs';
 test('scan feedback primes audio during gesture and emits one short tone and vibration',async()=>{let tones=0,vibrations=[];class Audio{state='suspended';currentTime=0;destination={};resume(){this.state='running';return Promise.resolve();}close(){return Promise.resolve();}createOscillator(){tones++;return {frequency:{setValueAtTime(){}},connect(){},start(){},stop(){}};}createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}}const f=createScanFeedback({AudioContext:Audio,navigator:{vibrate:n=>vibrations.push(n)}});await f.prime();f.success();assert.equal(tones,1);assert.deepEqual(vibrations,[100]);f.close();});
 test('unsupported vibration and blocked audio never prevent recording',async()=>{const f=createScanFeedback({});await f.prime();assert.doesNotThrow(()=>f.success());assert.doesNotThrow(()=>f.close());const blocked=createScanFeedback({AudioContext:class{state='suspended';resume(){return Promise.reject(Error('blocked'));}}});await blocked.prime();assert.doesNotThrow(()=>blocked.success());});
+
+test('packing speech includes every quantity and variant, and distinguishes completed orders',()=>{
+ const order={status:'pending',items:[{name:'IC đúc HMD',variant:'800W',qty:1},{name:'Sạc điện',variant:'48V',qty:2}]};
+ assert.equal(packingAnnouncement(order),'Bắt đầu đóng đơn gồm 1 IC đúc HMD , phân loại 800W; 2 Sạc điện , phân loại 48V.');
+ assert.equal(packingAnnouncement({...order,packedAt:'2026-10-30'}),'Đơn đã đóng.');
+ assert.match(packingAnnouncement({...order,status:'cancelled'}),/Đơn đã hủy/);
+});
+test('speech uses Vietnamese, cancels previous announcement and handles unsupported devices',()=>{const spoken=[];let cancels=0;const voice={lang:'vi-VN'};const f=createScanFeedback({SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},speechSynthesis:{cancel(){cancels++;},getVoices(){return [voice];},speak(u){spoken.push(u);}}});assert.equal(f.speak('Đơn đã đóng.'),true);assert.equal(spoken[0].lang,'vi-VN');assert.equal(spoken[0].voice,voice);assert.equal(spoken[0].text,'Đơn đã đóng.');assert.equal(cancels,1);assert.equal(createScanFeedback({}).speak('Test'),false);});
