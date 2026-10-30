@@ -2,7 +2,7 @@ import {day} from '../lib/orders.mjs';
 import express from 'express';import helmet from 'helmet';import path from 'node:path';import {randomUUID,randomBytes,createHash} from 'node:crypto';import {existsSync,readFileSync} from 'node:fs';
 import {root} from './config.mjs';import {httpError,digest,hashPassword,verifyPassword,currentUser,requireUser,requireOrigin,issueSession,clearSession,shopAccess,rateLimit} from './security.mjs';
 import {EventEmitter} from 'node:events';
-import {importOrders,recordEvent,bump} from './domain.mjs';import {putVideo,streamVideo} from './storage.mjs';import {createDrive} from './drive.mjs';
+import {importOrders,recordEvent,bump,deleteOrdersBulk} from './domain.mjs';import {putVideo,streamVideo} from './storage.mjs';import {createDrive} from './drive.mjs';
 const now=()=>new Date().toISOString();
 export async function createApp({db,config,fetchImpl=fetch}){
  const app=express(),updates=new EventEmitter(),streams=new Map(),drive=createDrive({db,config,fetchImpl}),dummyHash=await hashPassword(randomBytes(24).toString('hex'));let uploads=0;updates.setMaxListeners(100);
@@ -85,6 +85,7 @@ export async function createApp({db,config,fetchImpl=fetch}){
    await bump(db,a.shop);res.json({ok:true});return;
   }
   if(b.action==='import'){let count;try{count=await importOrders(db,a,b.orders);}catch(e){if(!e.status&&!(e.code||'').startsWith('ER_'))e.status=400;throw e;}res.json({ok:true,count});return;}
+  if(b.action==='delete_many'){const count=await deleteOrdersBulk(db,a,b.ids);res.json({ok:true,count});return;}
   if(b.action==='delete'||b.action==='restore'){await db.transaction(async tx=>{const row=await tx.first('SELECT data,updated_at FROM orders WHERE shop=? AND id=? FOR UPDATE',[a.shop,String(b.id)]);if(!row)throw httpError(404,'Không tìm thấy đơn.');const data=JSON.parse(row.data);data.importedDay=data.importedDay||day(row.updated_at);if(b.action==='delete')data.deletedAt=now();else delete data.deletedAt;await tx.query('UPDATE orders SET data=?,updated_at=? WHERE shop=? AND id=?',[JSON.stringify(data),now(),a.shop,String(b.id)]);await recordEvent(tx,a.shop,a.user,String(b.id),b.action==='delete'?'Xóa đơn khỏi danh sách và phiếu kho':'Khôi phục đơn');await bump(tx,a.shop);});res.json({ok:true});return;}
   if(b.action==='unpack'){await db.transaction(async tx=>{const o=await tx.first('SELECT id FROM orders WHERE shop=? AND id=? FOR UPDATE',[a.shop,String(b.id)]);if(!o)throw httpError(404,'Không tìm thấy đơn.');await tx.query('UPDATE orders SET packed_at=NULL,updated_at=? WHERE shop=? AND id=?',[now(),a.shop,o.id]);await recordEvent(tx,a.shop,a.user,o.id,'Mở lại đơn để đóng lại');await bump(tx,a.shop);});res.json({ok:true});return;}
   throw httpError(400,'Thao tác không hợp lệ.');
