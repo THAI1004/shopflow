@@ -1,4 +1,27 @@
+document.getElementById('extensionVersion').textContent = 'v' + chrome.runtime.getManifest().version;
 const el = id => document.getElementById(id);
+
+// ==========================================
+// 1. NAVIGATION TABS (Doanh số vs Nhân bản SP)
+// ==========================================
+el('tabNavRevenue').onclick = () => {
+  el('tabNavRevenue').classList.add('active');
+  el('tabNavCloner').classList.remove('active');
+  el('panelRevenue').style.display = 'block';
+  el('panelCloner').style.display = 'none';
+};
+
+el('tabNavCloner').onclick = () => {
+  el('tabNavCloner').classList.add('active');
+  el('tabNavRevenue').classList.remove('active');
+  el('panelCloner').style.display = 'block';
+  el('panelRevenue').style.display = 'none';
+  checkClonerTabContext();
+};
+
+// ==========================================
+// 2. DOANH SỐ THỰC NHẬN LOGIC
+// ==========================================
 let orders = [];
 
 function formatVND(amount) {
@@ -31,6 +54,7 @@ function updateKPI() {
   const fees = Math.max(0, totalBuyer - totalFinal);
   const pendingNote = pendingExactCount > 0 ? ` (${pendingExactCount} đơn tạm tính)` : '';
 
+  el('kpiUnpaid').textContent = formatVND(orders.filter(o=>o.payoutStatus==='unpaid').reduce((sum,o)=>sum+(Number(o.pendingPayout)||0),0));
   el('kpiFinal').textContent = formatVND(totalFinal) + pendingNote;
   el('kpiBuyer').textContent = formatVND(totalBuyer);
   el('kpiFees').textContent = '-' + formatVND(fees);
@@ -46,10 +70,14 @@ function updateKPI() {
 }
 
 async function load() {
-  const s = await chrome.storage.local.get(['draftRevenueOrders', 'revenueTarget']);
+  const s = await chrome.storage.local.get(['draftRevenueOrders', 'revenueTarget', 'savedClonerDraft']);
   orders = s.draftRevenueOrders || [];
   if (s.revenueTarget) el('targetUrl').value = s.revenueTarget;
   updateKPI();
+
+  if (s.savedClonerDraft) {
+    renderSavedDraftBanner(s.savedClonerDraft);
+  }
 
   // Check current active tab
   try {
@@ -57,12 +85,14 @@ async function load() {
     if (tab?.url) {
       const u = new URL(tab.url);
       if (u.hostname === 'banhang.shopee.vn') {
-        let name = 'Tất cả';
+        let name = u.pathname.startsWith('/portal/finance/income')?'Doanh thu · Chưa thanh toán':'Tất cả';
         if (u.search.includes('type=toship') || u.search.includes('source=to_process')) name = 'Chờ lấy hàng';
         else if (u.search.includes('type=shipping')) name = 'Đang giao';
         else if (u.search.includes('type=completed')) name = 'Đã giao';
         else if (u.search.includes('type=cancelled')) name = 'Đã hủy';
         else if (u.pathname.includes('/portal/sale/order/')) name = 'Chi tiết đơn hàng';
+        else if (u.pathname.includes('/portal/product/new')) name = 'Thêm sản phẩm mới';
+        else if (u.pathname.includes('/portal/product/')) name = 'Sản phẩm Shopee';
         el('currentTabLabel').textContent = name;
       } else {
         el('currentTabLabel').textContent = 'Chưa mở Shopee Seller';
@@ -84,14 +114,12 @@ el('btnRead').onclick = async () => {
       throw Error('Vui lòng mở trang Shopee Seller Center (banhang.shopee.vn) trước khi đọc.');
     }
 
-    // Inject hook and parser script into MAIN world
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
-      files: ['injected-hook.js', 'parser.js']
+      files: ['injected-hook.js', 'finance-parser.js', 'parser.js']
     });
 
-    // Execute extract in MAIN world
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
@@ -106,7 +134,6 @@ el('btnRead').onclick = async () => {
       throw Error('Không nhận được dữ liệu đơn từ trang này.');
     }
 
-    // Deduplication check by ID
     const map = new Map(orders.map(o => [String(o.id).toUpperCase(), o]));
     let newCount = 0;
     let updatedCount = 0;
@@ -125,6 +152,7 @@ el('btnRead').onclick = async () => {
           ...prev,
           ...incoming,
           finalAmount,
+          items: incoming.items?.length ? incoming.items : (prev.items || []),
           isPendingFinal,
           diffAmount: Math.max(0, (incoming.buyerPayment || prev.buyerPayment || 0) - finalAmount),
           buyerPayment: (incoming.buyerPayment && incoming.buyerPayment > 0) ? incoming.buyerPayment : (prev.buyerPayment || 0),
@@ -144,35 +172,7 @@ el('btnRead').onclick = async () => {
     updateKPI();
 
     const exactCount = r.exactFinalCount ?? r.orders.filter(o => !o.isPendingFinal && o.finalAmount > 0).length;
-    const logLines = [
-      `✅ Đã đọc trang Shopee [${r.currentTab}]:`,
-      `• Tìm thấy: ${r.orders.length} đơn trên trang`,
-      exactCount > 0 ? `• Đã lấy thực nhận chính xác: ${exactCount}/${r.orders.length} đơn` : null,
-      r.mappedIdsCount ? `• Đã liên kết mã hệ thống Shopee: ${r.mappedIdsCount} đơn` : null,
-      `• Đơn mới thêm vào giỏ: ${newCount}`,
-      `• Đơn trùng mã (đã cập nhật thông tin): ${updatedCount}`,
-      `• Tổng giỏ tạm hiện tại: ${orders.length} đơn`
-    ].filter(Boolean);
-
-    if (r.orders.length > 0) {
-      logLines.push('\nChi tiết các đơn vừa đọc:');
-      r.orders.forEach(o => {
-        const finalTxt = (o.finalAmount > 0 && !o.isPendingFinal)
-          ? `${formatVND(o.finalAmount)} (Phí sàn: -${formatVND(o.diffAmount)})`
-          : `${formatVND(o.finalAmount)} (Tạm tính)`;
-        logLines.push(`• ${o.id} | ${o.buyer} | Khách: ${formatVND(o.buyerPayment)} -> Thực nhận: ${finalTxt} | ${o.carrier}`);
-      });
-    }
-
-    if (exactCount < r.orders.length) {
-      logLines.push('\n💡 Mẹo: Với các đơn đang tạm tính, bạn có thể click mở 1 đơn để extension tự động nhận diện API chi tiết doanh số.');
-    }
-
-    if (r.warnings?.length) {
-      logLines.push('\n' + r.warnings.join('\n'));
-    }
-
-    el('log').textContent = logLines.join('\n');
+    el('log').textContent = `✅ Đã đọc trang Shopee [${r.currentTab}]:\n• Tìm thấy: ${r.orders.length} đơn | Thực nhận chính xác: ${exactCount} đơn\n• Đơn mới: ${newCount} | Đơn cập nhật: ${updatedCount}\n• Tổng giỏ tạm: ${orders.length} đơn.\n${(r.warnings||[]).join("\n")}`;
   } catch (e) {
     el('log').textContent = '⚠️ Lỗi: ' + (e.message || String(e));
   } finally {
@@ -183,87 +183,37 @@ el('btnRead').onclick = async () => {
 
 el('btnClear').onclick = async () => {
   if (!orders.length) return;
-  if (!confirm('Xóa toàn bộ các đơn đang lưu trong giỏ tạm của extension?')) return;
+  if (!confirm(`Xóa toàn bộ ${orders.length} đơn đã đọc trong giỏ tạm?`)) return;
   orders = [];
-  await chrome.storage.local.remove(['draftRevenueOrders', 'pendingRevenueImport']);
+  await chrome.storage.local.set({ draftRevenueOrders: [] });
   updateKPI();
-  el('log').textContent = 'Đã xóa giỏ tạm. Bạn có thể mở lại tab Shopee và đọc lại.';
+  el('log').textContent = 'Đã xóa giỏ tạm. Bạn có thể bấm Đọc lại từ đầu.';
 };
 
 el('btnDiagnose').onclick = async () => {
   el('btnDiagnose').disabled = true;
-  el('log').textContent = '🔍 Đang kiểm tra kết nối mạng và chẩn đoán cấu trúc Shopee...';
+  el('log').textContent = '🔍 Đang chẩn đoán kết nối và API Shopee...';
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.url || !new URL(tab.url).hostname.includes('banhang.shopee.vn')) {
-      throw Error('Vui lòng mở Shopee banhang.shopee.vn trước khi chẩn đoán.');
+      throw Error('Vui lòng mở Kênh Người Bán Shopee.');
     }
-
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
-      files: ['injected-hook.js', 'parser.js']
+      files: ['injected-hook.js', 'finance-parser.js', 'parser.js']
     });
-
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
-      func: async () => {
-        const url = window.location.href;
-        const cookies = document.cookie;
-        const spcCdsMatch = cookies.match(/SPC_CDS=([^;]+)/);
-        const spcCds = spcCdsMatch ? 'Có (' + spcCdsMatch[1].slice(0, 8) + '...)' : 'Không tìm thấy trong cookie';
-
-        const resources = performance.getEntriesByType('resource') || [];
-        const apiCalls = resources.filter(r => r.name.includes('/api/')).map(r => r.name);
-        const orderApiCalls = apiCalls.filter(u => /order|shipment|finance|income|escrow/i.test(u));
-
-        // Count cards in DOM
-        const textNodes = [];
-        const walker = document.createTreeWalker(document.body, 4);
-        let n;
-        while (n = walker.nextNode()) {
-          if (/Mã\s*đơn\s*hàng/i.test(n.textContent || '')) textNodes.push(n.textContent.trim());
-        }
-
-        // Test probe for first order if found
-        let testProbeResult = 'Chưa thử';
-        const sampleSn = textNodes[0]?.match(/([0-9]{2}[0-9A-Z]{12,24})/)?.[1];
-        if (sampleSn && globalThis.ShopFlowRevenueHelpers) {
-          try {
-            const probe = await globalThis.ShopFlowRevenueHelpers.resolveIncomeForOrder(null, sampleSn);
-            testProbeResult = probe ? `Thành công! Thực nhận: ${probe.finalAmount} ₫` : 'API chưa trả về ngay';
-          } catch (e) {
-            testProbeResult = 'Lỗi probe: ' + (e.message || String(e));
-          }
-        }
-
-        return {
-          url,
-          spcCds,
-          totalApiCalls: apiCalls.length,
-          orderApiCalls: orderApiCalls.slice(-5),
-          cardsFound: textNodes.length,
-          sampleSn: sampleSn || 'Không thấy',
-          testProbeResult
-        };
-      }
+      func: () => ({
+        url: window.location.href,
+        hasCache: !!window.__SHOPEE_REVENUE_CACHE__,
+        hasProductCache: !!window.__SHOPEE_PRODUCT_CACHE__?.currentItem
+      })
     });
-
     const d = result?.[0]?.result;
-    if (!d) throw Error('Không nhận được kết quả chẩn đoán.');
-
-    const lines = [
-      '🔍 KẾT QUẢ CHẨN ĐOÁN SHOPEE:',
-      `• URL: ${d.url}`,
-      `• Token SPC_CDS: ${d.spcCds}`,
-      `• Số đơn nhận diện trên DOM: ${d.cardsFound} (Mã mẫu: ${d.sampleSn})`,
-      `• Thử nghiệm lấy thực nhận: ${d.testProbeResult}`,
-      `• Tổng số API đã gọi: ${d.totalApiCalls} requests`,
-      `• Các API đơn hàng gần nhất:`,
-      ...(d.orderApiCalls.length ? d.orderApiCalls.map(u => '  -> ' + u) : ['  (Chưa ghi nhận API đơn hàng nào)'])
-    ];
-    el('log').textContent = lines.join('\n');
+    el('log').textContent = `🔍 Chẩn đoán:\n• URL: ${d?.url}\n• Hook Doanh số: ${d?.hasCache ? 'OK' : 'Chưa'}\n• Cache Sản phẩm: ${d?.hasProductCache ? 'Có dữ liệu' : 'Chưa có'}`;
   } catch (e) {
     el('log').textContent = '⚠️ Lỗi chẩn đoán: ' + (e.message || String(e));
   } finally {
@@ -276,49 +226,13 @@ el('btnSend').onclick = async () => {
   try {
     const rawUrl = el('targetUrl').value.trim();
     const url = new URL(rawUrl);
-
-    if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) {
-      throw Error('Địa chỉ webapp cần HTTPS hoặc localhost/127.0.0.1.');
-    }
-    if (url.hostname === 'banhang.shopee.vn') {
-      throw Error('Nhập địa chỉ của website ShopFlow, không phải địa chỉ Shopee.');
-    }
-
     const pattern = url.protocol + '//' + url.hostname + (url.port ? ':' + url.port : '') + '/*';
 
-    // 1. Check existing permissions or request permission safely
-    try {
-      const hasPerm = await chrome.permissions.contains({ origins: [pattern] }).catch(() => false);
-      if (!hasPerm) {
-        await chrome.permissions.request({ origins: [pattern] }).catch(() => false);
-      }
-    } catch (e) {
-      console.warn('Permissions request note:', e);
-    }
-
-    // 2. Register bridge script for dynamic domain if permitted
-    try {
-      await chrome.scripting.unregisterContentScripts({ ids: ['shopflow-revenue-bridge'] }).catch(() => {});
-      await chrome.scripting.registerContentScripts([{
-        id: 'shopflow-revenue-bridge',
-        matches: [pattern],
-        js: ['bridge.js'],
-        runAt: 'document_idle',
-        persistAcrossSessions: true
-      }]).catch(() => {});
-    } catch (e) {}
-
-    // 3. Store in pendingRevenueImport
     await chrome.storage.local.set({
-      pendingRevenueImport: {
-        orders,
-        at: Date.now(),
-        origin: url.origin
-      },
+      pendingRevenueImport: { orders, at: Date.now(), origin: url.origin },
       revenueTarget: rawUrl
     });
 
-    // 4. Check if target tab is already open
     const allTabs = await chrome.tabs.query({});
     const targetTab = allTabs.find(t => {
       try { return new URL(t.url).origin === url.origin; } catch { return false; }
@@ -326,64 +240,39 @@ el('btnSend').onclick = async () => {
 
     if (targetTab) {
       await chrome.tabs.update(targetTab.id, { active: true });
-      // Inject message directly to open tab
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: targetTab.id },
-          func: (payload) => {
-            window.postMessage({
-              type: 'SHOPFLOW_REVENUE_IMPORT',
-              orders: payload,
-              timestamp: Date.now()
-            }, location.origin);
-          },
-          args: [orders]
-        });
-      } catch (e) {}
+      await chrome.scripting.executeScript({
+        target: { tabId: targetTab.id },
+        func: (payload) => {
+          window.postMessage({ type: 'SHOPFLOW_REVENUE_IMPORT', orders: payload, timestamp: Date.now() }, location.origin);
+        },
+        args: [orders]
+      }).catch(() => {});
     } else {
       await chrome.tabs.create({ url: rawUrl });
     }
 
-    el('log').textContent = `🚀 Đã gửi ${orders.length} đơn sang Web ShopFlow (${url.origin}) thành công!\nHãy kiểm tra tab "Doanh số thực nhận" trên giao diện Web.`;
+    el('log').textContent = `🚀 Đã gửi ${orders.length} đơn sang Web ShopFlow (${url.origin}) thành công!`;
   } catch (e) {
     el('log').textContent = '⚠️ Lỗi gửi sang Web: ' + (e.message || String(e));
   }
 };
 
-el('btnExcel').onclick = async () => {
+el('btnExcel').onclick = () => {
   if (!orders.length) return;
-  try {
-    const headers = ['Mã đơn hàng', 'Khách hàng', 'Sản phẩm', 'Số lượng', 'Trạng thái', 'Tiền khách trả', 'Thực nhận người bán', 'Chênh lệch phí sàn', 'Đơn vị vận chuyển', 'Thời gian đọc'];
-    const rows = [headers];
-
-    orders.forEach(o => {
-      const itemsText = (o.items || []).map(i => `${i.name}${i.variant ? ' [' + i.variant + ']' : ''} x${i.qty}`).join('; ');
-      rows.push([
-        o.id,
-        o.buyer || '—',
-        itemsText,
-        o.totalQty || 1,
-        o.status,
-        o.buyerPayment || 0,
-        o.finalAmount || 0,
-        o.diffAmount || 0,
-        o.carrier || '—',
-        o.readAt || ''
-      ]);
-    });
-
-    const csvContent = '\uFEFF' + rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Doanh-So-Shopee_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    el('log').textContent = `📊 Đã tải file CSV doanh số cho ${orders.length} đơn hàng.`;
-  } catch (e) {
-    el('log').textContent = '⚠️ Lỗi tải CSV: ' + (e.message || String(e));
-  }
+  const headers = ['Mã đơn hàng', 'Khách hàng', 'Sản phẩm', 'Số lượng', 'Trạng thái', 'Tiền khách trả', 'Thực nhận người bán', 'Chênh lệch phí sàn', 'Đơn vị vận chuyển'];
+  const rows = [headers];
+  orders.forEach(o => {
+    const itemsText = (o.items || []).map(i => `${i.name}${i.variant ? ' [' + i.variant + ']' : ''} x${i.qty}`).join('; ');
+    rows.push([o.id, o.buyer || '—', itemsText, o.totalQty || 1, o.status, o.buyerPayment || 0, o.finalAmount || 0, o.diffAmount || 0, o.carrier || '—']);
+  });
+  const csvContent = '\uFEFF' + rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Doanh-So-Shopee_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 el('btnJson').onclick = () => {
@@ -395,7 +284,413 @@ el('btnJson').onclick = () => {
   a.download = `ShopFlow_Revenue_${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  el('log').textContent = `💾 Đã tải file JSON cho ${orders.length} đơn hàng.`;
+};
+
+// ==========================================
+// 3. PRODUCT CLONER & AUTO-FILL LOGIC
+// ==========================================
+let currentRawProduct = null;
+let currentSpunProduct = null;
+
+async function checkClonerTabContext() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url) return;
+    const u = new URL(tab.url);
+    if (!u.hostname.includes('banhang.shopee.vn')) {
+      el('clonerStatusText').innerHTML = 'Chưa mở Shopee. Hãy mở <strong style="color:var(--orange)">banhang.shopee.vn</strong>';
+      return;
+    }
+
+    if (u.pathname.includes('/portal/product/new')) {
+      el('clonerStatusText').innerHTML = 'Phát hiện: <strong style="color:var(--orange)">Trang Thêm SP mới (Shop Phụ)</strong>';
+      el('clonerLog').textContent = '👉 Đang ở trang Thêm SP mới! Bấm nút "Điền Tự Động Vào Form" bên dưới.';
+    } else if (u.pathname.includes('/portal/product/')) {
+      el('clonerStatusText').innerHTML = 'Phát hiện: <strong style="color:var(--primary)">Trang Sửa/Xem SP (Shop Chính)</strong>';
+      el('clonerLog').textContent = '👉 Đang ở trang SP Shop Chính! Bấm "Lấy & Biến Tính SP Này" để bắt đầu sao chép.';
+    } else {
+      el('clonerStatusText').innerHTML = 'Shopee: <strong style="color:var(--primary)">Kênh Người Bán</strong>';
+    }
+  } catch (e) {
+    el('clonerStatusText').textContent = '—';
+  }
+}
+
+function renderSavedDraftBanner(draft) {
+  if (!draft) return;
+  el('savedDraftBanner').style.display = 'block';
+  el('savedDraftTitle').textContent = draft.spunName || draft.name || 'Sản phẩm đã sao chép';
+  const modelCount = draft.models?.length || 1;
+  const imgCount = draft.images?.length || 0;
+  el('savedDraftMeta').textContent = `${modelCount} phân loại · ${imgCount} ảnh đã lưu`;
+}
+
+// 3.1 Extract product from current page
+el('btnExtractProduct').onclick = async () => {
+  el('btnExtractProduct').disabled = true;
+  el('btnExtractProduct').innerHTML = '<span>⏳</span> Đang bóc tách dữ liệu SP...';
+  el('clonerLog').textContent = '⏳ Đang quét thông tin sản phẩm từ Shopee...';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !new URL(tab.url).hostname.includes('banhang.shopee.vn')) {
+      throw Error('Vui lòng mở trang chi tiết sản phẩm trên Shopee (banhang.shopee.vn).');
+    }
+
+    // Inject cloner script
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      files: ['injected-hook.js', 'product-cloner.js']
+    });
+
+    const res = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: () => {
+        if (!globalThis.ShopFlowProductCloner) throw Error('Không tải được module đọc sản phẩm.');
+        return globalThis.ShopFlowProductCloner.extractFromCurrentPage(document);
+      }
+    });
+
+    const raw = res?.[0]?.result;
+    if (!raw || (!raw.name && !raw.price)) {
+      throw Error('Chưa tìm thấy thông tin sản phẩm trên trang này. Hãy chắc chắn bạn đang mở trang Sửa hoặc Chi tiết sản phẩm.');
+    }
+
+    currentRawProduct = raw;
+    applySpinning();
+
+    el('clonerPreviewCard').style.display = 'block';
+    el('clonerLog').textContent = `✅ Đã bóc tách thành công sản phẩm:\n"${raw.name.slice(0, 45)}..."\n• ${raw.models?.length || 1} phân loại | ${raw.images?.length || 0} ảnh sản phẩm.`;
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Lỗi: ' + (e.message || String(e));
+  } finally {
+    el('btnExtractProduct').disabled = false;
+    el('btnExtractProduct').innerHTML = '<span>⚡</span> Lấy & Biến Tính SP Này';
+  }
+};
+
+function applySpinning() {
+  if (!currentRawProduct) return;
+  const Cloner = globalThis.ShopFlowProductCloner;
+  if (!Cloner) return;
+
+  const prefixType = el('selPrefix').value;
+  const spunTitle = Cloner.spinTitle(currentRawProduct.name, prefixType);
+  const spunDesc = Cloner.spinDescription(currentRawProduct.description);
+
+  el('spunTitleInput').value = spunTitle;
+  el('charCountTitle').textContent = `${spunTitle.length}/120`;
+  el('spunDescInput').value = spunDesc;
+
+  const prefixSku = el('skuPrefixInput').value.trim() || 'S2-';
+  const priceType = el('priceAdjType').value;
+  const priceVal = parseFloat(el('priceAdjValue').value) || 0;
+
+  // Process models with new prices & SKUs
+  const models = (currentRawProduct.models && currentRawProduct.models.length > 0)
+    ? currentRawProduct.models.map(m => {
+        const adjPrice = Cloner.adjustPrice(m.price, priceType, priceVal);
+        return {
+          ...m,
+          price: adjPrice,
+          sku: Cloner.generateVariantSku(currentRawProduct.name, m.name, m.sku, prefixSku)
+        };
+      })
+    : [];
+
+  const singlePrice = Cloner.adjustPrice(currentRawProduct.price, priceType, priceVal);
+  const singleSku = Cloner.generateVariantSku(currentRawProduct.name, 'Chính', currentRawProduct.sku, prefixSku);
+
+  currentSpunProduct = {
+    ...currentRawProduct,
+    spunName: spunTitle,
+    spunDescription: spunDesc,
+    price: singlePrice,
+    sku: singleSku,
+    models,
+    images: currentRawProduct.images || []
+  };
+
+  el('badgeModelCount').textContent = `${models.length || 1} phân loại`;
+  el('imageCountText').textContent = `${currentSpunProduct.images.length} ảnh`;
+
+  // Render Category & Shipping
+  el('previewCategoryText').textContent = currentRawProduct.category || 'Mặc định Shopee';
+  el('previewShippingText').textContent = `${currentRawProduct.weight || 500}g (${currentRawProduct.dimension?.length || 20}x${currentRawProduct.dimension?.width || 15}x${currentRawProduct.dimension?.height || 10}cm)`;
+
+  // Render Models in preview box
+  el('badgeVariationSummary').textContent = `${models.length || 1} dòng`;
+  if (models.length > 0) {
+    el('previewModelsBox').innerHTML = models.map(m => `
+      <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--line)">
+        <span><b>${m.name}</b> <small style="color:var(--muted)">[${m.sku}]</small></span>
+        <span style="color:var(--green);font-weight:700">${formatVND(m.price)} <small style="color:var(--muted)">(kho: ${m.stock || 100})</small></span>
+      </div>
+    `).join('');
+  } else {
+    el('previewModelsBox').innerHTML = `
+      <div style="display:flex;justify-content:space-between">
+        <span><b>Sản phẩm đơn</b> <small>[${singleSku}]</small></span>
+        <span style="color:var(--green);font-weight:700">${formatVND(singlePrice)}</span>
+      </div>
+    `;
+  }
+}
+
+// Re-spin buttons
+el('btnRespinTitle').onclick = () => {
+  if (!currentRawProduct) return;
+  const spun = globalThis.ShopFlowProductCloner.spinTitle(currentRawProduct.name, el('selPrefix').value);
+  el('spunTitleInput').value = spun;
+  el('charCountTitle').textContent = `${spun.length}/120`;
+  if (currentSpunProduct) currentSpunProduct.spunName = spun;
+};
+
+el('btnRespinDesc').onclick = () => {
+  if (!currentRawProduct) return;
+  const spun = globalThis.ShopFlowProductCloner.spinDescription(currentRawProduct.description);
+  el('spunDescInput').value = spun;
+  if (currentSpunProduct) currentSpunProduct.spunDescription = spun;
+};
+
+el('spunTitleInput').oninput = e => {
+  el('charCountTitle').textContent = `${e.target.value.length}/120`;
+  if (currentSpunProduct) currentSpunProduct.spunName = e.target.value;
+};
+
+el('spunDescInput').oninput = e => {
+  if (currentSpunProduct) currentSpunProduct.spunDescription = e.target.value;
+};
+
+el('selPrefix').onchange = () => applySpinning();
+el('skuPrefixInput').oninput = () => applySpinning();
+el('priceAdjType').onchange = () => {
+  const t = el('priceAdjType').value;
+  el('priceAdjUnitLabel').textContent = t.includes('percent') ? '%' : t.includes('amount') ? '₫' : '';
+  applySpinning();
+};
+el('priceAdjValue').oninput = () => applySpinning();
+
+el('btnCopyOptions').onclick = () => {
+  const models = currentSpunProduct?.models || currentRawProduct?.models || [];
+  const options = currentSpunProduct?.tier_variation?.[0]?.options || models.map(m => m.name);
+  if (!options.length) {
+    alert('Chưa có danh sách phân loại.');
+    return;
+  }
+  const text = options.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    el('clonerLog').textContent = `📋 Đã sao chép ${options.length} tên phân loại vào Clipboard:\n${options.join(', ')}`;
+  }).catch(() => {
+    prompt('Danh sách phân loại:', text);
+  });
+};
+
+// Download processed images with canvas frames & zip
+el('btnDownloadImages').onclick = async () => {
+  if (!currentSpunProduct || !currentSpunProduct.images.length) {
+    alert('Không tìm thấy ảnh sản phẩm để xử lý.');
+    return;
+  }
+
+  const Processor = globalThis.ShopFlowImageProcessor;
+  if (!Processor) {
+    alert('Không tìm thấy bộ xử lý ảnh Canvas.');
+    return;
+  }
+
+  el('btnDownloadImages').disabled = true;
+  el('btnDownloadImages').innerHTML = '<span>⏳</span> Đang tạo khung & nén zip...';
+
+  const frame = el('selFrameStyle').value;
+  const flip = el('chkFlip').checked;
+  const boost = el('chkBoost').checked;
+
+  try {
+    const result = await Processor.processAllImagesToZip(
+      currentSpunProduct.images,
+      { frame, flip, boost },
+      msg => { el('clonerLog').textContent = msg; }
+    );
+
+    const safeName = (currentSpunProduct.spunName || 'san-pham').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 30);
+    Processor.triggerDownload(result.zipBlob, `Bo-Anh-Lach-AI_${safeName}.zip`);
+
+    el('clonerLog').textContent = `✅ Đã tải về file ZIP gồm ${result.count} ảnh đã đóng khung và lách AI thành công! Hãy giải nén để kéo thả vào Shopee.`;
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Lỗi xử lý ảnh: ' + (e.message || String(e));
+  } finally {
+    el('btnDownloadImages').disabled = false;
+    el('btnDownloadImages').innerHTML = '<span>📥</span> Tải Trọn Bộ Ảnh Đã Lách AI (.zip)';
+  }
+};
+
+// Save ready-to-fill draft
+el('btnSaveClonerDraft').onclick = async () => {
+  if (!currentSpunProduct) return;
+  currentSpunProduct.spunName = el('spunTitleInput').value.trim();
+  currentSpunProduct.spunDescription = el('spunDescInput').value.trim();
+
+  await chrome.storage.local.set({ savedClonerDraft: currentSpunProduct });
+  renderSavedDraftBanner(currentSpunProduct);
+  el('clonerLog').textContent = '💾 ĐÃ LƯU BỘ DỮ LIỆU THÀNH CÔNG!\nBây giờ bạn mở tab Thêm sản phẩm bên Shop Phụ (portal/product/new) rồi bấm "Điền Tự Động".';
+};
+
+el('btnResetCloner').onclick = async () => {
+  if (!confirm('Đặt lại dữ liệu nhân bản sản phẩm?')) return;
+  currentRawProduct = null;
+  currentSpunProduct = null;
+  await chrome.storage.local.remove('savedClonerDraft');
+  el('clonerPreviewCard').style.display = 'none';
+  el('savedDraftBanner').style.display = 'none';
+  el('clonerLog').textContent = 'Đã đặt lại dữ liệu nhân bản.';
+};
+
+// Helper: Get target product draft
+async function getTargetProduct() {
+  const s = await chrome.storage.local.get(['savedClonerDraft']);
+  const targetProduct = currentSpunProduct || s.savedClonerDraft;
+  if (!targetProduct) {
+    throw Error('Chưa có dữ liệu sản phẩm nào được lưu. Hãy sang tab Shop Chính bấm "Lấy & Biến Tính SP Này" trước.');
+  }
+  return targetProduct;
+}
+
+// 3.2.1 ĐIỀN RIÊNG PHÂN LOẠI & BẢNG GIÁ
+el('btnFillVariationsOnly').onclick = async () => {
+  el('btnFillVariationsOnly').disabled = true;
+  el('btnFillVariationsOnly').innerHTML = '<span>⏳</span> Đang điền phân loại...';
+  el('clonerLog').textContent = '⏳ Đang quét vùng Phân loại hàng & Danh sách giá Shopee...';
+
+  try {
+    const targetProduct = await getTargetProduct();
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !new URL(tab.url).hostname.includes('banhang.shopee.vn')) {
+      throw Error('Vui lòng mở trang Thêm sản phẩm Shopee.');
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      files: ['product-cloner.js']
+    });
+
+    const res = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: async (payload) => {
+        if (!globalThis.ShopFlowProductCloner) throw Error('Không tải được module điền form.');
+        return await globalThis.ShopFlowProductCloner.fillVariationsOnly(payload, msg => console.log(msg));
+      },
+      args: [targetProduct]
+    });
+
+    const fillResult = res?.[0]?.result;
+    if (fillResult?.success) {
+      el('clonerLog').textContent = `🎯 ĐÃ ĐIỀN XONG PHÂN LOẠI & BẢNG GIÁ!\n• Đã điền: ${fillResult.filled.join(', ')}.\n👉 Kiểm tra lại các dòng giá và kho hàng 100 nhé!`;
+    } else {
+      el('clonerLog').textContent = '⚠️ Chưa tìm thấy bảng phân loại. Hãy chắc chắn bạn đang mở mục "Thông tin bán hàng".';
+    }
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Lỗi: ' + (e.message || String(e));
+  } finally {
+    el('btnFillVariationsOnly').disabled = false;
+    el('btnFillVariationsOnly').innerHTML = '<span>🎯</span> Điền Riêng Phân Loại & Bảng Giá';
+  }
+};
+
+// 3.2.2 ĐIỀN RIÊNG THÔNG TIN CƠ BẢN & MÔ TẢ
+el('btnFillBasicOnly').onclick = async () => {
+  el('btnFillBasicOnly').disabled = true;
+  el('btnFillBasicOnly').innerHTML = '<span>⏳</span> Đang điền cơ bản...';
+  el('clonerLog').textContent = '⏳ Đang điền Tên, Mô tả & Vận chuyển...';
+
+  try {
+    const targetProduct = await getTargetProduct();
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !new URL(tab.url).hostname.includes('banhang.shopee.vn')) {
+      throw Error('Vui lòng mở trang Thêm sản phẩm Shopee.');
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      files: ['product-cloner.js']
+    });
+
+    const res = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: async (payload) => {
+        if (!globalThis.ShopFlowProductCloner) throw Error('Không tải được module điền form.');
+        return await globalThis.ShopFlowProductCloner.fillBasicInfoOnly(payload, msg => console.log(msg));
+      },
+      args: [targetProduct]
+    });
+
+    const fillResult = res?.[0]?.result;
+    if (fillResult?.isStep1) {
+      el('clonerLog').textContent = `✅ ĐÃ ĐIỀN XONG TÊN SẢN PHẨM!\n👉 Bạn bấm nút "Tiếp theo" (màu cam) bên dưới màn hình Shopee để vào form chi tiết.`;
+    } else if (fillResult?.success) {
+      el('clonerLog').textContent = `📝 ĐÃ ĐIỀN XONG THÔNG TIN CƠ BẢN!\n• Đã điền: ${fillResult.filled.join(', ')}.`;
+    } else {
+      el('clonerLog').textContent = '⚠️ Chưa tìm thấy các ô thông tin cơ bản.';
+    }
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Lỗi: ' + (e.message || String(e));
+  } finally {
+    el('btnFillBasicOnly').disabled = false;
+    el('btnFillBasicOnly').innerHTML = '<span>📝</span> Điền Riêng Tên, Mô Tả & Vận Chuyển';
+  }
+};
+
+// 3.2.3 ĐIỀN TOÀN BỘ
+el('btnAutoFill').onclick = async () => {
+  el('btnAutoFill').disabled = true;
+  el('btnAutoFill').innerHTML = '<span>⏳</span> Đang điền toàn bộ...';
+  el('clonerLog').textContent = '⏳ Đang điền toàn bộ thông tin...';
+
+  try {
+    const targetProduct = await getTargetProduct();
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.url || !new URL(tab.url).hostname.includes('banhang.shopee.vn')) {
+      throw Error('Vui lòng mở trang Thêm sản phẩm Shopee.');
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      files: ['product-cloner.js']
+    });
+
+    const res = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: async (payload) => {
+        if (!globalThis.ShopFlowProductCloner) throw Error('Không tải được module điền form.');
+        return await globalThis.ShopFlowProductCloner.fillIntoShopeeForm(payload);
+      },
+      args: [targetProduct]
+    });
+
+    const fillResult = res?.[0]?.result;
+    if (fillResult?.isStep1) {
+      el('clonerLog').textContent = `✅ ĐÃ ĐIỀN XONG TÊN SẢN PHẨM!\n👉 Bấm nút "Tiếp theo" màu cam để vào form chi tiết, sau đó bấm nút "🎯 Điền Riêng Phân Loại & Bảng Giá" nhé!`;
+    } else if (fillResult?.success) {
+      el('clonerLog').textContent = `🎉 ĐIỀN FORM THÀNH CÔNG!\n• Đã điền: ${fillResult.filled.join(', ')}.\n👉 Kéo ảnh vào ô ảnh và bấm Lưu!`;
+    } else {
+      el('clonerLog').textContent = '⚠️ Chưa nhận diện được các ô form.';
+    }
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Lỗi: ' + (e.message || String(e));
+  } finally {
+    el('btnAutoFill').disabled = false;
+    el('btnAutoFill').innerHTML = '<span>🚀</span> Điền Toàn Bộ (Cơ Bản + Phân Loại)';
+  }
 };
 
 load();
+
+el('btnClonerSourceJson').onclick=async()=>{try{const data=await getTargetProduct(),url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='shopflow-product-source.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){el('clonerLog').textContent=e.message;}};

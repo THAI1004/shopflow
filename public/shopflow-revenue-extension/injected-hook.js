@@ -1,13 +1,20 @@
 // Injected into Shopee Seller page context (world: MAIN) to capture Shopee network requests
 (function () {
-  // Only activate on order management pages
-  if (!window.location.pathname.startsWith('/portal/sale/order')) return;
+  // Activate on order management and product management pages
+  const path = window.location.pathname;
+  if (!path.startsWith('/portal/sale/order') && !path.startsWith('/portal/product')) return;
+  // The destination editor only fills DOM fields; do not hook its network traffic.
+  if (/^\/portal\/product\/(?:new|edit)(?:\/|$)/i.test(path)) return;
   if (window.__SHOPEE_REVENUE_HOOK_INSTALLED__) return;
   window.__SHOPEE_REVENUE_HOOK_INSTALLED__ = true;
 
   window.__SHOPEE_REVENUE_CACHE__ = window.__SHOPEE_REVENUE_CACHE__ || {
     ordersBySn: {},
     ordersById: {}
+  };
+
+  window.__SHOPEE_PRODUCT_CACHE__ = window.__SHOPEE_PRODUCT_CACHE__ || {
+    currentItem: null
   };
 
   function parseMoney(v) {
@@ -88,25 +95,39 @@
     if (d.order_detail || d.order_income || d.seller_income || d.seller_expected_income || d.escrow_detail) {
       cacheOrderData(d.order_detail || d);
     }
+
+    // 3. Product detail
+    if (d.item || (d.name && (d.description || d.images))) {
+      window.__SHOPEE_PRODUCT_CACHE__.currentItem = d.item || d;
+    }
   }
 
-  // Hook window.fetch cleanly without async wrapper to prevent unhandled rejection traces
+  function shouldObserve(input, init) {
+    try {
+      if (/^\/portal\/product\/(?:new|edit)(?:\/|$)/i.test(window.location.pathname)) return false;
+      const method = String(init?.method || input?.method || 'GET').toUpperCase();
+      if (method !== 'GET') return false;
+      const raw = typeof input === 'string' ? input : input?.url || input?.href || '';
+      const url = new URL(raw, window.location.href);
+      if (url.hostname !== 'banhang.shopee.vn') return false;
+      return /order|income|finance|escrow|product|item/i.test(url.pathname) && !/report|collect|metric|grafana|log|analytics/i.test(url.pathname);
+    } catch { return false; }
+  }
+
+  // Observe successful reads without replacing the promise returned to Shopee.
   const origFetch = window.fetch;
   if (typeof origFetch === 'function') {
     window.fetch = function (...args) {
-      const promise = origFetch.apply(this, args);
-      if (promise && typeof promise.then === 'function') {
-        return promise.then(res => {
-          try {
-            const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-            if (/order|income|finance|escrow/i.test(url)) {
-              res.clone().json().then(j => handleApiResponse(url, j)).catch(() => {});
-            }
-          } catch (e) {}
-          return res;
-        });
-      }
-      return promise;
+      const observe = shouldObserve(args[0], args[1]);
+      const request = origFetch.apply(this, args);
+      if (observe) request.then(res => {
+        try {
+          if (res?.ok) Promise.resolve(res.clone().json()).then(j => {
+            try { handleApiResponse('', j); } catch {}
+          }, () => {});
+        } catch {}
+      }, () => { /* Observing must not create a second unhandled rejection. */ });
+      return request;
     };
   }
 
@@ -115,12 +136,13 @@
   const origSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
     this._shopeeUrl = url;
+    this._shopeeMethod = method;
     return origOpen.apply(this, [method, url, ...rest]);
   };
   XMLHttpRequest.prototype.send = function (...rest) {
     this.addEventListener('load', function () {
       try {
-        if (this._shopeeUrl && /order|income|finance|escrow/i.test(this._shopeeUrl)) {
+        if (this.status >= 200 && this.status < 300 && shouldObserve(this._shopeeUrl, {method:this._shopeeMethod})) {
           const j = JSON.parse(this.responseText);
           handleApiResponse(this._shopeeUrl, j);
         }

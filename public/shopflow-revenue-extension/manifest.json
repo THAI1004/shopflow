@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ShopFlow · Doanh Số Thực Nhận Shopee",
-  "version": "1.0.6",
-  "description": "Đọc đơn hàng Shopee theo từng tab (Chờ lấy hàng, Đang giao, Đã giao) để tính doanh số thực nhận, tiền khách trả, phí sàn và đồng bộ về ShopFlow.",
+  "name": "ShopFlow · Trợ Lý Bán Hàng & Nhân Bản Shopee",
+  "version": "1.2.7",
+  "description": "Đọc doanh số thực nhận Shopee, gộp đơn 3 tab, nhân bản sản phẩm lách AI chống quét trùng lặp và tự động điền form thêm sản phẩm shop vệ tinh.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,6 +10,8 @@
   ],
   "host_permissions": [
     "https://banhang.shopee.vn/*",
+    "https://down-vn.img.susercontent.com/*",
+    "https://cf.shopee.vn/*",
     "https://shopflow-2zbb.onrender.com/*",
     "http://localhost/*",
     "http://127.0.0.1/*",
@@ -22,19 +24,31 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ShopFlow · Doanh Số Thực Nhận"
+    "default_title": "ShopFlow · Trợ Lý Shopee"
   },
   "content_scripts": [
     {
-      "matches": ["https://banhang.shopee.vn/*"],
-      "js": ["injected-hook.js"],
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "injected-hook.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://banhang.shopee.vn/*"],
-      "js": ["content.js"],
-      "run_at": "document_start"
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ],
+      "js": [
+        "finance-parser.js",
+        "parser.js",
+        "product-cloner.js",
+        "image-processor.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
     },
     {
       "matches": [
@@ -45,14 +59,24 @@
         "http://127.0.0.1:5174/*",
         "https://shopflow-dong-hang-thaiz.thaizzbbl.chatgpt.site/*"
       ],
-      "js": ["bridge.js"],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["injected-hook.js", "parser.js"],
-      "matches": ["https://banhang.shopee.vn/*"]
+      "resources": [
+        "injected-hook.js",
+        "parser.js",
+        "product-cloner.js",
+        "image-processor.js",
+        "finance-parser.js"
+      ],
+      "matches": [
+        "https://banhang.shopee.vn/*"
+      ]
     }
   ]
 }

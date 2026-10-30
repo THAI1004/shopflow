@@ -1,66 +1,69 @@
-# Hướng Dẫn Cài Đặt & Sử Dụng Extension Đọc Doanh Số Thực Nhận Shopee
+# Hướng Dẫn Sử Dụng Extension ShopFlow: Doanh Số & Nhân Bản Sản Phẩm Shopee
 
-Tiện ích mở rộng này được thiết kế chuyên biệt để đọc đơn hàng từ 3 trạng thái trên **Shopee Kênh Người Bán** (`banhang.shopee.vn`):
-1. **Chờ lấy hàng** (To ship)
-2. **Đang giao** (Shipping)
-3. **Đã giao** (Delivered / Completed)
+Tiện ích mở rộng **ShopFlow (v1.2.0)** tích hợp 2 công cụ cốt lõi phục vụ vận hành đa shop chuyên nghiệp:
+1. 💰 **Doanh số thực nhận**: Đọc và bóc tách thực nhận người bán sau khi trừ phí sàn từ 3 tab Shopee (*Chờ lấy hàng*, *Đang giao*, *Đã giao*), đồng bộ về Web ShopFlow.
+2. 🚀 **Nhân bản sản phẩm (Clone SP) lách AI**: Sao chép sản phẩm từ Shop Chính $\rightarrow$ tự động spin tiêu đề, spin mô tả, tự sinh SKU, lệch giá thông minh, đóng khung lách thuật toán ảnh AI $\rightarrow$ Điền tự động vào trang Thêm sản phẩm Shop Phụ.
 
 ---
 
-## 1. Cài đặt tiện ích vào Chrome / Cốc Cốc / Edge
+## 1. Cài đặt tiện ích vào Trình duyệt (Chrome / Cốc Cốc / Edge)
 
-1. Mở trình duyệt Chrome / Cốc Cốc, gõ vào thanh địa chỉ:
+1. Mở trình duyệt, gõ vào thanh địa chỉ:
    ```
    chrome://extensions
    ```
 2. Bật công tắc **"Chế độ dành cho nhà phát triển"** (Developer mode) ở góc trên bên phải.
 3. Bấm nút **"Tải tiện ích đã giải nén"** (Load unpacked).
-4. Chọn thư mục `shopflow-revenue-extension` (hoặc giải nén từ tệp `shopflow-revenue-extension.zip`).
-5. Ghim (Pin) biểu tượng extension lên thanh công cụ trình duyệt để tiện sử dụng.
+4. Chọn thư mục `shopflow-revenue-extension` (hoặc giải nén từ file `shopflow-revenue-extension.zip`).
+5. Ghim (Pin) biểu tượng ShopFlow lên thanh công cụ trình duyệt.
 
 ---
 
-## 2. Quy trình đọc đơn từ 3 tab Shopee
+## 2. Hướng dẫn tính năng "Nhân Bản Sản Phẩm (Clone SP)"
 
-1. **Bước 1**: Đăng nhập vào [Kênh Người Bán Shopee](https://banhang.shopee.vn/portal/sale/order).
-2. **Bước 2**: Bấm vào tab **"Chờ lấy hàng"**:
-   - Bấm biểu tượng Extension ShopFlow Doanh Số.
-   - Bấm nút **"Đọc trang hiện tại"**.
-   - Extension sẽ tự động đọc danh sách đơn, khách hàng, số lượng, tiền khách trả và số tiền thực nhận.
-3. **Bước 3**: Bấm tiếp sang tab **"Đang giao"**:
-   - Mở extension và bấm **"Đọc trang hiện tại"**.
-   - Extension tự động gộp đơn, kiểm tra trùng lặp mã đơn (`Mã đơn hàng`). Nếu đơn đã có từ tab trước, hệ thống sẽ tự cập nhật trạng thái mới nhất mà **không cộng dồn hay nhân đôi doanh thu**.
-4. **Bước 4**: Bấm sang tab **"Đã giao"**:
-   - Mở extension và bấm **"Đọc trang hiện tại"**.
-5. **Bước 5**: Bấm nút **"Gửi sang Web ShopFlow"**:
-   - Dữ liệu toàn bộ đơn từ cả 3 tab sẽ được chuyển ngay sang tab **"Doanh số thực nhận"** trên trang web ShopFlow.
-   - Bạn cũng có thể bấm **"Tải Excel (.xlsx)"** hoặc **"Tải JSON"** trực tiếp ngay trên Extension nếu muốn lưu file offline.
-
----
-
-## 3. Các cột thông tin trên Web ShopFlow (Tab "Doanh số thực nhận")
-
-Bảng tổng hợp trên Web cung cấp đầy đủ 8 trường thông tin theo yêu cầu:
-1. **Mã đơn hàng**: Mã đơn Shopee (ví dụ: `261028SRJJ39RA`). Có thể bấm vào để xem chi tiết chiết khấu / mở trên Shopee.
-2. **Tên khách hàng**: Tên tài khoản người mua (ví dụ: `if791ea9jp`).
-3. **Tên sản phẩm & phân loại**: Tên sản phẩm đầy đủ kèm thông tin phân loại SKU (ví dụ: `Sạc Xe Đạp Điện... Variation: 60V-20Ah`).
-4. **Số lượng**: Tổng số lượng sản phẩm của từng đơn.
-5. **Trạng thái**: Nhận diện chuẩn xác 3 trạng thái (`Chờ lấy hàng`, `Đang giao`, `Đã giao`).
-6. **Số tiền khách trả**: Tổng số tiền người mua thanh toán (ví dụ: `182.750 ₫`).
-7. **Số tiền cuối cùng (Người bán thực nhận)**: Số tiền thực nhận sau khi trừ phí sàn, phí vận chuyển ước tính, thuế, voucher sàn (ví dụ: `155.992 ₫`).
-8. **Đơn vị vận chuyển**: Tên đơn vị vận chuyển (ví dụ: `Giao Hàng Nhanh`, `SPX Express`, `Viettel Post`...).
+### Bước 1: Tại Shop Chính (Trang sản phẩm cần nhân bản)
+1. Mở trang Kênh Người Bán Shop Chính $\rightarrow$ Vào mục **Tất cả sản phẩm** $\rightarrow$ Bấm nút **Chỉnh sửa** sản phẩm bạn muốn sao chép (hoặc trang chi tiết sản phẩm).
+2. Bấm vào biểu tượng **Extension ShopFlow** $\rightarrow$ Chọn tab **🚀 Nhân Bản SP (Clone)**.
+3. Bấm nút **"⚡ Lấy & Biến Tính SP Này"**:
+   - Tiện ích tự động trích xuất Tên, Mô tả, Cân nặng, Kích thước, Phân loại, Giá & Bộ ảnh.
+   - **Tự động lách tiêu đề**: Bạn có thể chọn tiền tố `[CHÍNH HÃNG]`, `[FREESHIP]`, `[BẢO HÀNH 1 ĐỔI 1]` hoặc bấm `🎲 Đổi tên` để xáo trộn từ đồng nghĩa.
+   - **Tự sinh SKU**: Nếu sản phẩm gốc chưa có SKU, tiện ích sẽ tự sinh mã SKU thông minh kèm tiền tố (ví dụ: `S2-SXD6020-CD`).
+   - **Quy tắc giá**: Chọn giữ nguyên giá, hoặc tăng nhẹ `+5%`, `+5.000 đ`, `+10.000 đ`...
+4. **Xử lý bộ ảnh lách AI**:
+   - Chọn kiểu khung viền: *🔶 Cam Shopee Freeship*, *🔴 Đỏ Đô Chuẩn Loại 1*, *🟢 Xanh ShopFlow Uy Tín*...
+   - Tích chọn `Lật ngang (Flip)` hoặc `Tăng sáng & nét (+2%)`.
+   - Bấm nút **"📥 Tải Trọn Bộ Ảnh Đã Lách AI (.zip)"** $\rightarrow$ Tệp ZIP chứa toàn bộ ảnh đã đóng khung viền lách AI sẽ tải về máy của bạn.
+5. Bấm **"💾 Lưu Dữ Liệu Sẵn Sàng Fill"**.
 
 ---
 
-## 4. Các tính năng nổi bật trên Web ShopFlow
+### Bước 2: Tại Shop Phụ (Trang Thêm sản phẩm mới)
+1. Mở trang Kênh Người Bán Shop Phụ $\rightarrow$ Bấm **"Thêm 1 sản phẩm mới"** (`https://banhang.shopee.vn/portal/product/new`).
+2. Mở Extension ShopFlow $\rightarrow$ Chọn tab **🚀 Nhân Bản SP (Clone)**.
+3. Bấm nút to màu cam: **"🚀 Điền Tự Động Vào Form (Auto-Fill)"**!
+   - Tiện ích sẽ tự động điền Tên SP đã spin, Mô tả đã spin, Cân nặng, Kích thước, Phân loại, Giá mới & Mã SKU mới vào đúng các ô form của Shopee.
+4. **Hoàn tất trong 5 giây**:
+   - Bạn giải nén tệp `.zip` ảnh vừa tải ở Bước 1 và kéo thả vào ô ảnh của Shopee.
+   - Liếc mắt kiểm tra lại các thông tin.
+   - Bấm **"Lưu & Hiển thị"** (hoặc Lưu & Ẩn)!
 
-- **KPI Cards Thống kê tài chính**:
-  - **Doanh số thực nhận**: Tổng tiền người bán thực nhận cho tất cả các đơn đang hiển thị.
-  - **Tiền khách thanh toán**: Tổng doanh số giá trị đơn hàng khách trả.
-  - **Phí sàn & Chiết khấu**: Tự động tính chênh lệch `Tiền khách trả - Thực nhận` để biết sàn đã giữ lại bao nhiêu tiền phí.
-  - **Tổng đơn hàng & Sản phẩm**: Đếm tổng số đơn và tổng số lượng sản phẩm.
-- **Thanh lọc nhanh theo trạng thái**: Lọc 1 chạm giữa `Tất cả`, `Chờ lấy hàng`, `Đang giao`, `Đã giao`.
-- **Tìm kiếm đa năng**: Gõ mã đơn, tên khách, tên sản phẩm hoặc đơn vị vận chuyển để lọc tức thì.
-- **Xuất Excel (.xlsx)**: Tạo báo cáo Excel chuẩn màu sắc đẹp mắt, có dòng Tổng cộng ở cuối, công thức tính chênh lệch phí sàn.
-- **Lưu trữ máy chủ**: Lưu vĩnh viễn dữ liệu doanh số lên máy chủ hoặc bộ nhớ cache cục bộ.
-- **Nhập JSON dự phòng**: Dễ dàng dán JSON hoặc tải file backup khi cần khôi phục lại dữ liệu.
+---
+
+## 3. Hướng dẫn tính năng "Doanh Số Thực Nhận"
+
+1. Mở [Kênh Người Bán Shopee](https://banhang.shopee.vn/portal/sale/order).
+2. Vào lần lượt các tab: **Chờ lấy hàng** $\rightarrow$ **Đang giao** $\rightarrow$ **Đã giao**.
+3. Ở mỗi tab, bấm Extension $\rightarrow$ Chọn **"📥 Đọc trang hiện tại"**.
+4. Tiện ích tự động gộp đơn, kiểm tra trùng lặp mã đơn và hiển thị:
+   - Tổng thực nhận người bán.
+   - Tổng tiền khách trả.
+   - Tổng phí sàn đã trừ.
+5. Bấm **"🚀 Gửi sang Web ShopFlow"** để đồng bộ sang giao diện quản lý tập trung.
+
+
+## Đọc tiền chưa thanh toán (1.2.7)
+
+1. Mở Doanh thu trên Shopee, chọn Chưa thanh toán.
+2. Bấm Đọc trang hiện tại trong extension. Chuyển từng trang và đọc tiếp nếu có nhiều trang.
+3. Xem tổng Chưa thanh toán trong extension, rồi Gửi sang Web ShopFlow.
+4. Trên web, vào Doanh số thực nhận → Chưa thanh toán. Tổng chỉ gồm các mã đã đọc, tại lần đọc gần nhất.

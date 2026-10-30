@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <title>ShopFlow · Doanh Số Thực Nhận</title>
+  <title>ShopFlow · Trợ Lý Bán Hàng & Nhân Bản Shopee</title>
   <style>
     :root {
       --primary: #176650;
@@ -15,13 +15,14 @@
       --accent: #d97706;
       --green: #15803d;
       --blue: #2563eb;
+      --orange: #ee4d2d;
     }
     * { box-sizing: border-box; }
     body {
       font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      width: 390px;
+      width: 420px;
       margin: 0;
-      padding: 16px;
+      padding: 14px;
       color: var(--ink);
       background: var(--bg);
     }
@@ -29,12 +30,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
-      padding-bottom: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
       border-bottom: 1px solid var(--line);
     }
     h1 {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       margin: 0;
       color: var(--primary);
@@ -50,16 +51,48 @@
       background: #e2ede5;
       color: var(--primary);
     }
+    /* Main View Tabs */
+    .view-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: #e9efe9;
+      padding: 3px;
+      border-radius: 9px;
+      margin-bottom: 12px;
+    }
+    .view-tab {
+      font: inherit;
+      padding: 7px 10px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all .15s ease;
+    }
+    .view-tab.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
     .tab-status {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
+      padding: 7px 11px;
       background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 8px;
-      font-size: 12px;
-      margin-bottom: 12px;
+      font-size: 11.5px;
+      margin-bottom: 11px;
       font-weight: 500;
     }
     .tab-status .dot {
@@ -67,16 +100,18 @@
       height: 8px;
       border-radius: 50%;
       background: #10b981;
+      flex-shrink: 0;
     }
     .tab-status strong { color: var(--primary); }
+
     .buttons {
       display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 7px;
+      margin-bottom: 11px;
     }
     button {
       font: inherit;
-      padding: 9px 13px;
+      padding: 8px 12px;
       border-radius: 8px;
       border: 1px solid var(--line);
       background: #fff;
@@ -101,189 +136,463 @@
     button.primary:hover:not(:disabled) {
       background: var(--primary-dark);
     }
+    button.orange {
+      background: var(--orange);
+      color: #fff;
+      border-color: var(--orange);
+    }
+    button.orange:hover:not(:disabled) {
+      background: #d43818;
+    }
     button:disabled {
       opacity: .5;
       cursor: not-allowed;
     }
+
     .kpi-card {
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 12px;
+      padding: 11px 13px;
+      margin-bottom: 11px;
       box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
-    .kpi-main {
-      margin-bottom: 8px;
-    }
+    .kpi-main { margin-bottom: 7px; }
     .kpi-main small {
       font-size: 11px;
       color: var(--muted);
-      text-transform: uppercase;
-      font-weight: 600;
-      letter-spacing: .5px;
+      display: block;
+      margin-bottom: 2px;
     }
     .kpi-main strong {
-      display: block;
-      font-size: 24px;
+      font-size: 19px;
       font-weight: 700;
       color: var(--green);
-      line-height: 1.2;
     }
     .kpi-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      padding-top: 8px;
+      padding-top: 7px;
       border-top: 1px dashed var(--line);
-    }
-    .kpi-sub span {
-      display: block;
-      font-size: 10px;
-      color: var(--muted);
-    }
-    .kpi-sub b {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 11.5px;
     }
     .status-breakdown {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid var(--line);
-      font-size: 11px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-top: 9px;
+      padding-top: 7px;
+      border-top: 1px dashed var(--line);
     }
     .status-pill {
-      flex: 1;
-      padding: 4px 6px;
+      background: #f3f7f4;
       border-radius: 6px;
-      background: #f3f5f2;
+      padding: 5px 6px;
       text-align: center;
-      line-height: 1.3;
     }
-    .status-pill small { display: block; font-size: 9px; color: var(--muted); }
-    .status-pill strong { font-size: 11px; }
+    .status-pill small {
+      font-size: 9.5px;
+      color: var(--muted);
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-pill strong {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
     .target-group {
-      margin-bottom: 12px;
+      margin-bottom: 11px;
+      background: #fff;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
     }
     .target-group label {
-      display: block;
       font-size: 11px;
       color: var(--muted);
+      display: block;
       margin-bottom: 4px;
       font-weight: 500;
     }
-    .target-group input {
+    .target-group input, .form-input, select.form-select {
       width: 100%;
-      padding: 7px 10px;
+      padding: 6px 9px;
+      font: inherit;
       font-size: 12px;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 6px;
+      box-sizing: border-box;
+      outline: none;
       background: #fff;
     }
-    #log {
-      max-height: 140px;
-      overflow-y: auto;
+    .target-group input:focus, .form-input:focus, select.form-select:focus {
+      border-color: var(--primary);
+    }
+
+    #log, .cloner-log {
+      font-size: 11px;
+      color: var(--muted);
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 10px;
-      font-size: 11px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: #374151;
-      margin-bottom: 12px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      line-height: 1.4;
     }
     .footer-note {
       font-size: 10.5px;
       color: var(--muted);
       line-height: 1.5;
+      background: #eef4f0;
+      padding: 7px 10px;
+      border-radius: 6px;
+    }
+
+    /* Product Cloner UI styles */
+    .card-box {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 11px 12px;
+      margin-bottom: 10px;
+    }
+    .card-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 0 0 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .field-label span { color: var(--muted); font-weight: normal; }
+    textarea.form-textarea {
+      width: 100%;
+      padding: 6px 9px;
+      font: inherit;
+      font-size: 11.5px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-sizing: border-box;
+      resize: vertical;
+      outline: none;
+      line-height: 1.4;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 8px;
+    }
+    .checkbox-label {
+      font-size: 11.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .pill-count {
+      font-size: 10px;
+      background: #e2ede5;
+      color: var(--primary);
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+    .ready-banner {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      padding: 9px 11px;
+      margin-bottom: 10px;
+      font-size: 11.5px;
+      color: #065f46;
+      line-height: 1.4;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>ShopFlow <span class="badge">DOANH SỐ</span></h1>
-    <span style="font-size:11px;color:var(--muted)">v1.0.2</span>
+    <h1>ShopFlow <span class="badge">TRỢ LÝ SHOPEE</span></h1>
+    <span id="extensionVersion" style="font-size:11px;color:var(--muted)"></span>
   </header>
 
-  <div class="tab-status" id="tabStatus">
-    <span class="dot"></span>
-    <span>Trang hiện tại: <strong id="currentTabLabel">Đang kiểm tra…</strong></span>
-  </div>
+  <nav class="view-tabs">
+    <button id="tabNavRevenue" class="view-tab active">💰 Doanh Số Thực Nhận</button>
+    <button id="tabNavCloner" class="view-tab">🚀 Nhân Bản SP (Clone)</button>
+  </nav>
 
-  <div class="buttons">
-    <button class="primary" id="btnRead">
-      <span>📥</span> Đọc trang hiện tại
-    </button>
-    <button id="btnClear" title="Xóa các đơn đã đọc trong giỏ tạm">
-      <span>🗑️</span> Xóa giỏ
-    </button>
-    <button id="btnDiagnose" title="Kiểm tra kết nối và phát hiện API Shopee">
-      <span>🔍</span>
-    </button>
-  </div>
-
-  <div class="kpi-card">
-    <div class="kpi-main">
-      <small>Thực nhận người bán (Tổng doanh số)</small>
-      <strong id="kpiFinal">0 ₫</strong>
+  <!-- PANEL 1: DOANH SỐ THỰC NHẬN -->
+  <div id="panelRevenue">
+    <div class="tab-status" id="tabStatus">
+      <span class="dot"></span>
+      <span>Trang hiện tại: <strong id="currentTabLabel">Đang kiểm tra…</strong></span>
     </div>
-    <div class="kpi-grid">
-      <div class="kpi-sub">
-        <span>Tiền khách trả:</span>
-        <b id="kpiBuyer">0 ₫</b>
+
+    <div class="buttons">
+      <button class="primary" id="btnRead">
+        <span>📥</span> Đọc trang hiện tại
+      </button>
+      <button id="btnClear" title="Xóa các đơn đã đọc trong giỏ tạm">
+        <span>🗑️</span> Xóa giỏ
+      </button>
+      <button id="btnDiagnose" title="Kiểm tra kết nối và phát hiện API Shopee">
+        <span>🔍</span>
+      </button>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-main">
+        <small>Thực nhận người bán (Tổng doanh số)</small>
+        <strong id="kpiFinal">0 ₫</strong><small>Chưa thanh toán · các đơn đã đọc</small><strong id="kpiUnpaid">0 ₫</strong>
       </div>
-      <div class="kpi-sub">
-        <span>Phí sàn / Chênh lệch:</span>
-        <b id="kpiFees" style="color:#dc2626">0 ₫</b>
+      <div class="kpi-grid">
+        <div>
+          <span style="color:var(--muted)">Tiền khách trả:</span>
+          <b id="kpiBuyer">0 ₫</b>
+        </div>
+        <div>
+          <span style="color:var(--muted)">Phí sàn:</span>
+          <b id="kpiFees" style="color:#dc2626">0 ₫</b>
+        </div>
+      </div>
+      <div class="status-breakdown">
+        <div class="status-pill">
+          <small>Chờ lấy hàng</small>
+          <strong id="countPending">0</strong>
+        </div>
+        <div class="status-pill">
+          <small>Đang giao</small>
+          <strong id="countShipping">0</strong>
+        </div>
+        <div class="status-pill">
+          <small>Đã giao</small>
+          <strong id="countDelivered">0</strong>
+        </div>
+        <div class="status-pill">
+          <small>Tổng đơn</small>
+          <strong id="countTotal" style="color:var(--primary)">0</strong>
+        </div>
       </div>
     </div>
-    <div class="status-breakdown">
-      <div class="status-pill">
-        <small>Chờ lấy hàng</small>
-        <strong id="countPending">0</strong>
-      </div>
-      <div class="status-pill">
-        <small>Đang giao</small>
-        <strong id="countShipping">0</strong>
-      </div>
-      <div class="status-pill">
-        <small>Đã giao</small>
-        <strong id="countDelivered">0</strong>
-      </div>
-      <div class="status-pill">
-        <small>Tổng đơn</small>
-        <strong id="countTotal" style="color:var(--primary)">0</strong>
-      </div>
+
+    <div class="target-group">
+      <label for="targetUrl">Địa chỉ webapp ShopFlow nhận dữ liệu:</label>
+      <input id="targetUrl" value="http://127.0.0.1:5174" placeholder="http://127.0.0.1:5174">
+    </div>
+
+    <div class="buttons">
+      <button class="primary" id="btnSend" disabled style="background:#15803d;border-color:#15803d">
+        <span>🚀</span> Gửi sang Web ShopFlow
+      </button>
+      <button id="btnExcel" disabled>
+        <span>📊</span> Excel
+      </button>
+      <button id="btnJson" disabled>
+        <span>📄</span> JSON
+      </button>
+    </div>
+
+    <div id="log">Mở banhang.shopee.vn (Chờ lấy hàng, Đang giao hoặc Đã giao) rồi bấm "Đọc trang hiện tại".</div>
+
+    <div class="footer-note">
+      💡 <b>Mẹo:</b> Vào từng tab trên Shopee và bấm Đọc. Tiện ích tự động gộp đơn, kiểm tra trùng mã đơn và cập nhật doanh thu thực nhận.
     </div>
   </div>
 
-  <div class="target-group">
-    <label for="targetUrl">Địa chỉ webapp ShopFlow nhận dữ liệu:</label>
-    <input id="targetUrl" value="http://127.0.0.1:5174" placeholder="http://127.0.0.1:5174">
+  <!-- PANEL 2: NHÂN BẢN & BIẾN TÍNH SẢN PHẨM -->
+  <div id="panelCloner" style="display:none">
+    <div class="tab-status" id="clonerTabStatus">
+      <span class="dot"></span>
+      <span id="clonerStatusText">Đang kiểm tra trang Shopee…</span>
+    </div>
+
+    <!-- Nút Lấy dữ liệu Shop Chính -->
+    <div class="buttons">
+      <button class="primary" id="btnExtractProduct">
+        <span>⚡</span> Lấy & Biến Tính SP Này
+      </button>
+      <button id="btnResetCloner" title="Đặt lại bộ dữ liệu">
+        <span>🔄</span>
+      </button>
+    </div>
+
+    <!-- Khung kết quả xem trước & chỉnh sửa -->
+    <div id="clonerPreviewCard" class="card-box" style="display:none">
+      <div class="card-title">
+        <span>📦 Bản xem trước (Đã lách AI)</span>
+        <span class="pill-count" id="badgeModelCount">0 phân loại</span>
+      </div>
+
+      <!-- Tên sản phẩm đã Spin -->
+      <div style="margin-bottom:8px">
+        <div class="field-label">
+          <span>Tiêu đề SP mới (Shopee ≤120 ký tự):</span>
+          <span id="charCountTitle">0/120</span>
+        </div>
+        <textarea id="spunTitleInput" class="form-textarea" rows="2" placeholder="Tiêu đề đã spin…"></textarea>
+        <div style="display:flex;gap:5px;margin-top:4px">
+          <select id="selPrefix" class="form-select" style="font-size:11px;padding:4px">
+            <option value="none" selected>Không tiền tố (Giữ tên chuẩn, không bị cắt ngắn)</option>
+            <option value="[CHÍNH HÃNG]">[CHÍNH HÃNG]</option>
+            <option value="[FREESHIP]">[FREESHIP]</option>
+            <option value="[BẢO HÀNH 1 ĐỔI 1]">[BẢO HÀNH 1 ĐỔI 1]</option>
+            <option value="[HÀNG CHUẨN LOẠI 1]">[HÀNG CHUẨN LOẠI 1]</option>
+            <option value="random">🎲 Tiền tố ngẫu nhiên</option>
+          </select>
+          <button id="btnRespinTitle" style="padding:4px 8px;font-size:11px">🎲 Đổi tên</button>
+        </div>
+      </div>
+
+      <!-- Ngành hàng & Thương hiệu -->
+      <div style="background:#f1f5f2;border-radius:6px;padding:6px 9px;margin-bottom:8px;font-size:11px">
+        <div style="display:flex;justify-content:space-between">
+          <span>Ngành hàng: <b id="previewCategoryText" style="color:var(--primary)">—</b></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:2px">
+          <span>Thương hiệu: <b style="color:var(--green)">No brand (Mặc định)</b></span>
+          <span>Vận chuyển: <b id="previewShippingText">500g</b></span>
+        </div>
+      </div>
+
+      <!-- Thiết lập Giá & SKU -->
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Tiền tố SKU shop phụ:</label>
+          <input id="skuPrefixInput" class="form-input" value="S2-" placeholder="S2-">
+        </div>
+        <div>
+          <label class="field-label">Điều chỉnh giá:</label>
+          <select id="priceAdjType" class="form-select">
+            <option value="percent_add">% Tăng (+)</option>
+            <option value="percent_sub">% Giảm (-)</option>
+            <option value="amount_add">+ VNĐ (Cộng tiền)</option>
+            <option value="amount_sub">- VNĐ (Trừ tiền)</option>
+            <option value="keep">Giữ nguyên giá gốc</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="field-label">Mức điều chỉnh (nhập % hoặc số tiền):</label>
+        <div style="display:flex;gap:6px">
+          <input id="priceAdjValue" type="number" class="form-input" value="5" min="0" step="1" placeholder="Ví dụ: 5, 10 hoặc 15000">
+          <span style="font-size:11px;display:flex;align-items:center;color:var(--muted);white-space:nowrap" id="priceAdjUnitLabel">% hoặc ₫</span>
+        </div>
+      </div>
+
+      <!-- Danh sách phân loại & giá dự kiến -->
+      <div style="margin-bottom:8px">
+        <div class="field-label">
+          <span>Bảng phân loại & Giá mới:</span>
+          <span id="badgeVariationSummary">0 dòng</span>
+        </div>
+        <div id="previewModelsBox" style="max-height:100px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px;font-size:11px;line-height:1.6">
+          <span class="muted">Chưa có dữ liệu phân loại.</span>
+        </div>
+        <button id="btnCopyOptions" type="button" style="margin-top:4px;padding:4px 8px;font-size:10.5px;width:100%;background:#f8fafc;border:1px solid #cbd5e1;color:#334155;border-radius:5px;cursor:pointer">
+          📋 Sao chép danh sách phân loại (nếu cần dán thủ công)
+        </button>
+      </div>
+
+      <!-- Mô tả đã Spin -->
+      <div style="margin-bottom:8px">
+        <div class="field-label">
+          <span>Mô tả (Đổi icon & thêm cam kết):</span>
+          <button id="btnRespinDesc" style="padding:2px 6px;font-size:10px">🎲 Đổi icon</button>
+        </div>
+        <textarea id="spunDescInput" class="form-textarea" rows="3" placeholder="Mô tả sản phẩm…"></textarea>
+      </div>
+
+      <!-- Xử lý Ảnh Chống Quét AI -->
+      <div style="background:#f4f9f6;border:1px solid #d4e8dd;border-radius:7px;padding:8px;margin-bottom:9px">
+        <div class="field-label" style="margin-bottom:6px">
+          <strong style="color:var(--primary)">🖼️ Bộ ảnh chống quét AI</strong>
+          <span id="imageCountText">0 ảnh</span>
+        </div>
+        <div style="margin-bottom:6px">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Khung viền Shopee:</label>
+          <select id="selFrameStyle" class="form-select" style="font-size:11.5px">
+            <option value="orange">🔶 Cam Shopee - Freeship Xtra (Khuyên dùng)</option>
+            <option value="red">🔴 Đỏ Đô - Chuẩn Loại 1</option>
+            <option value="green">🟢 Xanh ShopFlow - Uy Tín 100%</option>
+            <option value="gold">🟡 Vàng Kim - Bản Cao Cấp</option>
+            <option value="none">⚪ Không khung (chỉ lách điểm ảnh)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:8px">
+          <label class="checkbox-label">
+            <input type="checkbox" id="chkFlip"> Lật ngang (Flip)
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="chkBoost" checked> Tăng sáng & nét (+2%)
+          </label>
+        </div>
+        <button id="btnDownloadImages" class="primary" style="width:100%;font-size:12px;padding:7px">
+          <span>📥</span> Tải Trọn Bộ Ảnh Đã Lách AI (.zip)
+        </button>
+      </div>
+
+      <!-- Nút Lưu Bộ Dữ Liệu -->
+      <button class="primary" id="btnSaveClonerDraft" style="width:100%;background:#166534;border-color:#166534">
+        <span>💾</span> Lưu Dữ Liệu Sẵn Sàng Fill
+      </button>
+    </div>
+
+    <!-- Khối Điền Tự Động Sang Shop Phụ -->
+    <div id="clonerFillCard" class="card-box">
+      <div class="card-title">
+        <span>✨ Điền Form Shop Phụ (portal/product/new)</span>
+      </div>
+      <div id="savedDraftBanner" class="ready-banner" style="display:none">
+        <strong>Đã có dữ liệu sẵn sàng:</strong>
+        <div id="savedDraftTitle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;margin-top:2px">...</div>
+        <small id="savedDraftMeta" style="color:#047857">0 phân loại · 0 ảnh</small>
+      </div>
+
+      <!-- Nút 1: Điền riêng phân loại & bảng giá -->
+      <button class="primary" id="btnFillVariationsOnly" style="width:100%;padding:9px;font-size:12.5px;background:#0284c7;border-color:#0284c7;margin-bottom:6px">
+        <span>🎯</span> Điền Riêng Phân Loại & Bảng Giá
+      </button>
+
+      <!-- Nút 2: Điền riêng thông tin cơ bản & mô tả -->
+      <button class="primary" id="btnFillBasicOnly" style="width:100%;padding:9px;font-size:12.5px;background:#166534;border-color:#166534;margin-bottom:6px">
+        <span>📝</span> Điền Riêng Tên, Mô Tả & Vận Chuyển
+      </button>
+
+      <!-- Nút 3: Điền toàn bộ -->
+      <button class="primary orange" id="btnAutoFill" style="width:100%;padding:8px;font-size:12px">
+        <span>🚀</span> Điền Toàn Bộ (Cơ Bản + Phân Loại)
+      </button>
+
+      <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">
+        💡 <b>Mẹo thực chiến:</b><br/>
+        • Khi ở mục <b>"Thông tin bán hàng"</b>: Bấm nút xanh dương <b>"🎯 Điền Riêng Phân Loại & Bảng Giá"</b> để điền đúng nhóm công suất, các tùy chọn và bảng Giá - Kho - SKU mà không đụng chạm các phần khác!<br/>
+        • Kéo thả file ảnh trong tệp <b>.zip</b> vào ô ảnh rồi bấm Lưu!
+      </div>
+    </div>
+
+    <button type="button" id="btnClonerSourceJson" style="margin:8px 0">Tải dữ liệu SP mẫu (.json)</button><div id="clonerLog" class="cloner-log">Mở trang Sản phẩm trên Shopee (banhang.shopee.vn) để bắt đầu.</div>
   </div>
 
-  <div class="buttons">
-    <button class="primary" id="btnSend" disabled style="background:#15803d;border-color:#15803d">
-      <span>🚀</span> Gửi sang Web ShopFlow
-    </button>
-    <button id="btnExcel" disabled>
-      <span>📊</span> Tải Excel
-    </button>
-    <button id="btnJson" disabled>
-      <span>📄</span> JSON
-    </button>
-  </div>
-
-  <div id="log">Mở banhang.shopee.vn (Chờ lấy hàng, Đang giao hoặc Đã giao) rồi bấm "Đọc trang hiện tại".</div>
-
-  <div class="footer-note">
-    💡 <b>Mẹo:</b> Vào từng tab trên Shopee (Chờ lấy hàng → Đang giao → Đã giao) và bấm Đọc. Tiện ích tự động kiểm tra trùng mã đơn và cập nhật doanh thu thực nhận.
-  </div>
-
+  <script src="product-cloner.js"></script>
+  <script src="image-processor.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
