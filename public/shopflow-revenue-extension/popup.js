@@ -58,7 +58,7 @@ function updateKPI() {
   const unpaid=orders.filter(o=>o.payoutStatus==='unpaid');
   el('kpiUnpaidOverview').textContent=payoutOverview?formatVND(payoutOverview.total):'Chưa đọc tổng Shopee';
   el('kpiUnpaidTime').textContent=payoutOverview?'Lần đọc: '+new Date(payoutOverview.at).toLocaleString('vi-VN'):'';
-  el('kpiUnpaidCoverage').textContent=unpaid.length+' đơn chưa thanh toán đã đọc. Các ô Đang giao / Đã giao bên dưới là trạng thái vận chuyển của giỏ chung.';
+  el('kpiUnpaidCoverage').textContent=unpaid.length+' mã đã đọc ('+unpaid.filter(o=>o.pendingPayout>=0).length+' khoản không âm, '+unpaid.filter(o=>o.pendingPayout<0).length+' điều chỉnh âm). Các ô Đang giao / Đã giao bên dưới là trạng thái vận chuyển của giỏ chung.';
   el('kpiUnpaid').textContent = formatVND(orders.filter(o=>o.payoutStatus==='unpaid').reduce((sum,o)=>sum+(Number(o.pendingPayout)||0),0));
   el('kpiFinal').textContent = formatVND(totalFinal) + pendingNote;
   el('kpiBuyer').textContent = formatVND(totalBuyer);
