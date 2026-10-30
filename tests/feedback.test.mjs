@@ -4,8 +4,10 @@ test('unsupported vibration and blocked audio never prevent recording',async()=>
 
 test('packing speech includes every quantity and variant, and distinguishes completed orders',()=>{
  const order={status:'pending',items:[{name:'IC đúc HMD',variant:'800W',qty:1},{name:'Sạc điện',variant:'48V',qty:2}]};
- assert.equal(packingAnnouncement(order),'Bắt đầu đóng đơn gồm 1 IC đúc HMD , phân loại 800W; 2 Sạc điện , phân loại 48V.');
+ assert.equal(packingAnnouncement(order),'Bắt đầu đóng đơn gồm 1 800W; 2 48V.');
  assert.equal(packingAnnouncement({...order,packedAt:'2026-10-30'}),'Đơn đã đóng.');
  assert.match(packingAnnouncement({...order,status:'cancelled'}),/Đơn đã hủy/);
 });
 test('speech uses Vietnamese, cancels previous announcement and handles unsupported devices',()=>{const spoken=[];let cancels=0;const voice={lang:'vi-VN'};const f=createScanFeedback({SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},speechSynthesis:{cancel(){cancels++;},getVoices(){return [voice];},speak(u){spoken.push(u);}}});assert.equal(f.speak('Đơn đã đóng.'),true);assert.equal(spoken[0].lang,'vi-VN');assert.equal(spoken[0].voice,voice);assert.equal(spoken[0].text,'Đơn đã đóng.');assert.equal(cancels,1);assert.equal(createScanFeedback({}).speak('Test'),false);});
+
+test('packing speech uses short variant when present, otherwise first eight name words',()=>{assert.equal(packingAnnouncement({status:'pending',items:[{name:'Tên sản phẩm rất dài không cần đọc lại',variant:'IC HMD 800W [ICDUC]',qty:2},{name:'Sạc xe điện tự ngắt dành cho bình ắc quy chính hãng',variant:'',qty:1}]}),'Bắt đầu đóng đơn gồm 2 IC HMD 800W; 1 Sạc xe điện tự ngắt dành cho bình.');});
