@@ -17,6 +17,15 @@
     if(ids.length===1&&/[₫đ]\s*[\d.,]+|[\d.,]+\s*[₫đ]/i.test(value)){candidates.add(node);break;}
    }
   }
+  const overviewValues=new Set();
+  for(const label of doc.querySelectorAll('div,span,h2,h3,h4,p')){
+   if(text(label)!=='Chưa thanh toán')continue;
+   for(let node=label.parentElement,depth=0;node&&depth<8;node=node.parentElement,depth++){
+    const found=text(node).match(/Chưa thanh toán\s*Tổng cộng\s*([₫đ]\s*[\d.,]+|[\d.,]+\s*[₫đ])/i);
+    if(found){const amount=Number(found[1].replace(/[^0-9]/g,''));if(Number.isSafeInteger(amount))overviewValues.add(amount);break;}
+   }
+  }
+  const payoutOverviewTotal=overviewValues.size===1?[...overviewValues][0]:null,payoutOverviewReadAt=new Date().toISOString();
   const orders=new Map();let skipped=0;
   for(const row of candidates){
    const value=text(row),ids=[...new Set(value.match(codePattern)||[])];if(ids.length!==1)continue;
@@ -28,9 +37,9 @@
    const buyer=value.match(/Người mua\s*:\s*([^\s]+)/i)?.[1]||'';
    const payoutStage=value.match(/Đang chờ đơn hoàn tất|Đang tính toán|Đang thanh toán/i)?.[0]||'Chưa thanh toán';
    const payoutExpectedDay=value.match(/\b\d{2}\/\d{2}\/\d{4}\b/)?.[0]||'';
-   orders.set(ids[0],{id:ids[0],buyer,items:[],status:'',pendingPayout:amount,payoutStatus:'unpaid',payoutStage,payoutExpectedDay,payoutReadAt:new Date().toISOString(),isPendingFinal:true});
+   orders.set(ids[0],{...(payoutOverviewTotal!==null?{payoutOverviewTotal,payoutOverviewReadAt}:{}),id:ids[0],buyer,items:[],status:'',pendingPayout:amount,payoutStatus:'unpaid',payoutStage,payoutExpectedDay,payoutReadAt:new Date().toISOString(),isPendingFinal:true});
   }
-  const list=[...orders.values()];return {orders:list,currentTab:'Doanh thu · Chưa thanh toán',exactFinalCount:0,pendingPayoutTotal:list.reduce((sum,o)=>sum+o.pendingPayout,0),warnings:[...(skipped?['Một số dòng chưa đọc chắc chắn số tiền, đã bỏ qua.']:[]),'Chỉ tổng hợp các trang đã đọc. Chuyển trang Shopee rồi bấm Đọc để gộp đủ danh sách.']};
+  const list=[...orders.values()];return {payoutOverviewTotal,payoutOverviewReadAt,orders:list,currentTab:'Doanh thu · Chưa thanh toán',exactFinalCount:0,pendingPayoutTotal:list.reduce((sum,o)=>sum+o.pendingPayout,0),warnings:[...(skipped?['Một số dòng chưa đọc chắc chắn số tiền, đã bỏ qua.']:[]),'Chỉ tổng hợp các trang đã đọc. Chuyển trang Shopee rồi bấm Đọc để gộp đủ danh sách.']};
  }
  globalThis.ShopFlowFinanceParser={extract};
 })();

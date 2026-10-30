@@ -23,6 +23,7 @@ el('tabNavCloner').onclick = () => {
 // 2. DOANH SỐ THỰC NHẬN LOGIC
 // ==========================================
 let orders = [];
+let payoutOverview = null;
 
 function formatVND(amount) {
   const n = typeof amount === 'number' ? amount : (parseInt(String(amount || 0).replace(/[^0-9]/g, ''), 10) || 0);
@@ -54,6 +55,10 @@ function updateKPI() {
   const fees = Math.max(0, totalBuyer - totalFinal);
   const pendingNote = pendingExactCount > 0 ? ` (${pendingExactCount} đơn tạm tính)` : '';
 
+  const unpaid=orders.filter(o=>o.payoutStatus==='unpaid');
+  el('kpiUnpaidOverview').textContent=payoutOverview?formatVND(payoutOverview.total):'Chưa đọc tổng Shopee';
+  el('kpiUnpaidTime').textContent=payoutOverview?'Lần đọc: '+new Date(payoutOverview.at).toLocaleString('vi-VN'):'';
+  el('kpiUnpaidCoverage').textContent=unpaid.length+' đơn chưa thanh toán đã đọc. Các ô Đang giao / Đã giao bên dưới là trạng thái vận chuyển của giỏ chung.';
   el('kpiUnpaid').textContent = formatVND(orders.filter(o=>o.payoutStatus==='unpaid').reduce((sum,o)=>sum+(Number(o.pendingPayout)||0),0));
   el('kpiFinal').textContent = formatVND(totalFinal) + pendingNote;
   el('kpiBuyer').textContent = formatVND(totalBuyer);
@@ -70,8 +75,9 @@ function updateKPI() {
 }
 
 async function load() {
-  const s = await chrome.storage.local.get(['draftRevenueOrders', 'revenueTarget', 'savedClonerDraft']);
+  const s = await chrome.storage.local.get(['draftRevenueOrders', 'revenueTarget', 'savedClonerDraft', 'payoutOverview']);
   orders = s.draftRevenueOrders || [];
+  payoutOverview=s.payoutOverview||null;
   if (s.revenueTarget) el('targetUrl').value = s.revenueTarget;
   updateKPI();
 
@@ -134,6 +140,7 @@ el('btnRead').onclick = async () => {
       throw Error('Không nhận được dữ liệu đơn từ trang này.');
     }
 
+    if(Number.isFinite(r.payoutOverviewTotal)){payoutOverview={total:r.payoutOverviewTotal,at:r.payoutOverviewReadAt};await chrome.storage.local.set({payoutOverview});}
     const map = new Map(orders.map(o => [String(o.id).toUpperCase(), o]));
     let newCount = 0;
     let updatedCount = 0;
@@ -184,8 +191,8 @@ el('btnRead').onclick = async () => {
 el('btnClear').onclick = async () => {
   if (!orders.length) return;
   if (!confirm(`Xóa toàn bộ ${orders.length} đơn đã đọc trong giỏ tạm?`)) return;
-  orders = [];
-  await chrome.storage.local.set({ draftRevenueOrders: [] });
+  orders = [];payoutOverview=null;
+  await chrome.storage.local.set({ draftRevenueOrders: [],payoutOverview:null });
   updateKPI();
   el('log').textContent = 'Đã xóa giỏ tạm. Bạn có thể bấm Đọc lại từ đầu.';
 };
