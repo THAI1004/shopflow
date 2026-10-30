@@ -41,10 +41,9 @@ function updateKPI() {
   for (const o of orders) {
     const buyerAmt = Number(o.buyerPayment) || 0;
     const finalAmt = (Number(o.finalAmount) > 0) ? Number(o.finalAmount) : buyerAmt;
-    totalBuyer += buyerAmt;
-    totalFinal += finalAmt;
+    if(globalThis.ShopFlowRevenueState.isRevenueEligible(o)){totalBuyer += buyerAmt;totalFinal += finalAmt;}
 
-    if (o.isPendingFinal && o.finalAmount > 0) pendingExactCount++;
+    if (o.isPendingFinal && o.finalAmount > 0 && globalThis.ShopFlowRevenueState.isRevenueEligible(o)) pendingExactCount++;
 
     const st = String(o.status || '');
     if (/chờ lấy hàng/i.test(st)) countPending++;
@@ -62,6 +61,7 @@ function updateKPI() {
   el('kpiUnpaid').textContent = formatVND(orders.filter(o=>o.payoutStatus==='unpaid').reduce((sum,o)=>sum+(Number(o.pendingPayout)||0),0));
   el('kpiFinal').textContent = formatVND(totalFinal) + pendingNote;
   el('kpiBuyer').textContent = formatVND(totalBuyer);
+  el('returnCount').textContent = orders.filter(o=>globalThis.ShopFlowRevenueState.isReturnOrder(o)).length+' đơn hoàn / yêu cầu trả hàng (loại khỏi doanh số dự kiến)';
   el('kpiFees').textContent = '-' + formatVND(fees);
 
   el('countPending').textContent = countPending;
@@ -123,7 +123,7 @@ el('btnRead').onclick = async () => {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
-      files: ['injected-hook.js', 'finance-parser.js', 'parser.js']
+      files: ['injected-hook.js', 'revenue-state.js', 'finance-parser.js', 'parser.js']
     });
 
     const result = await chrome.scripting.executeScript({
@@ -208,7 +208,7 @@ el('btnDiagnose').onclick = async () => {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       world: 'MAIN',
-      files: ['injected-hook.js', 'finance-parser.js', 'parser.js']
+      files: ['injected-hook.js', 'revenue-state.js', 'finance-parser.js', 'parser.js']
     });
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },

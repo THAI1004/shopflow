@@ -510,14 +510,9 @@
         }
       }
 
-      // Status
-      let rawStatus = activeTab;
-      if (!rawStatus) {
-        if (/Chờ\s*lấy\s*hàng/i.test(flat)) rawStatus = 'Chờ lấy hàng';
-        else if (/Đang\s*giao|Đang\s*vận\s*chuyển/i.test(flat)) rawStatus = 'Đang giao';
-        else if (/Đã\s*giao|Giao\s*hàng\s*thành\s*công/i.test(flat)) rawStatus = 'Đã giao';
-      }
-      const status = normalizeStatus(rawStatus || 'Chờ lấy hàng');
+      // The tab may contain delivered and returning orders; classify this card first.
+      const shipment=globalThis.ShopFlowRevenueState.classifyShipment(flat,activeTab);
+      const status=shipment.status;
 
       // Buyer Payment
       let buyerPayment = netOrd?.total_price ? cleanMoney(netOrd.total_price) : (reactOrd?.total_price ? cleanMoney(reactOrd.total_price) : 0);
@@ -587,6 +582,7 @@
         detailId,
         buyer,
         carrier,
+        ...shipment,
         status,
         items,
         totalQty,

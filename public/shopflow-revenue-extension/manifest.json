@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ShopFlow · Trợ Lý Bán Hàng & Nhân Bản Shopee",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "description": "Đọc doanh số thực nhận Shopee, gộp đơn 3 tab, nhân bản sản phẩm lách AI chống quét trùng lặp và tự động điền form thêm sản phẩm shop vệ tinh.",
   "permissions": [
     "activeTab",
@@ -42,6 +42,7 @@
         "https://banhang.shopee.vn/*"
       ],
       "js": [
+        "revenue-state.js",
         "finance-parser.js",
         "parser.js",
         "product-cloner.js",
@@ -72,7 +73,8 @@
         "parser.js",
         "product-cloner.js",
         "image-processor.js",
-        "finance-parser.js"
+        "finance-parser.js",
+        "revenue-state.js"
       ],
       "matches": [
         "https://banhang.shopee.vn/*"
