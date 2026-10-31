@@ -12,3 +12,13 @@ export async function deleteOrdersBulk(db,access,input){
     await bump(tx,access.shop);
    });return count;
 }
+
+export async function deleteRevenueOrders(db,shop,input){
+ const invalid=()=>Object.assign(new Error('Chọn tối đa 2000 mã doanh số hoặc xóa toàn bộ.'),{status:400});
+ if(input!=='all'&&(!Array.isArray(input)||!input.length||input.length>2000||input.some(id=>typeof id!=='string'||!id.trim()||id.length>100)))throw invalid();
+ await db.transaction(async tx=>{
+  if(input==='all')await tx.query('DELETE FROM revenue_orders WHERE shop=?',[shop]);
+  else{const ids=[...new Set(input)];await tx.query('DELETE FROM revenue_orders WHERE shop=? AND id IN ('+ids.map(()=>'?').join(',')+')',[shop,...ids]);}
+  await bump(tx,shop);
+ });
+}
