@@ -588,11 +588,18 @@
       </div>
     </div>
 
+    <div style="padding:12px;border:1px solid var(--line);border-radius:8px;margin:10px 0">
+      <strong>Chuyển sản phẩm sang profile khác</strong>
+      <p class="muted">Shop gốc bấm Sao chép. Sang profile shop mới, mở Thêm sản phẩm rồi bấm Dán &amp; điền. Không cần tải file.</p>
+      <button type="button" id="btnCopyProduct">📋 Sao chép sản phẩm</button>
+      <button type="button" id="btnPasteProduct" style="margin-top:8px">📥 Dán &amp; điền sản phẩm</button>
+      <p class="muted">Giữ nguyên bộ nhớ tạm cho đến khi dán. Dữ liệu được lưu tại profile đích để điền tiếp bước 2. Ảnh vẫn dùng công cụ tải ảnh hiện có.</p>
+    </div>
     <button type="button" id="btnClonerSourceJson" style="margin:8px 0">Tải dữ liệu SP mẫu (.json)</button><div id="clonerLog" class="cloner-log">Mở trang Sản phẩm trên Shopee (banhang.shopee.vn) để bắt đầu.</div>
   </div>
 
   <script src="product-cloner.js"></script>
   <script src="image-processor.js"></script>
-  <script src="revenue-state.js"></script><script src="popup.js"></script>
+  <script src="revenue-state.js"></script><script src="product-transfer.js"></script><script src="popup.js"></script>
 </body>
 </html>

@@ -370,8 +370,10 @@ el('btnExtractProduct').onclick = async () => {
 
     el('clonerPreviewCard').style.display = 'block';
     el('clonerLog').textContent = `✅ Đã bóc tách thành công sản phẩm:\n"${raw.name.slice(0, 45)}..."\n• ${raw.models?.length || 1} phân loại | ${raw.images?.length || 0} ảnh sản phẩm.`;
+    return true;
   } catch (e) {
     el('clonerLog').textContent = '⚠️ Lỗi: ' + (e.message || String(e));
+    return false;
   } finally {
     el('btnExtractProduct').disabled = false;
     el('btnExtractProduct').innerHTML = '<span>⚡</span> Lấy & Biến Tính SP Này';
@@ -701,3 +703,43 @@ el('btnAutoFill').onclick = async () => {
 load();
 
 el('btnClonerSourceJson').onclick=async()=>{try{const data=await getTargetProduct(),url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='shopflow-product-source.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){el('clonerLog').textContent=e.message;}};
+
+// Clipboard is shared between Chrome profiles; extension storage is not.
+el('btnCopyProduct').onclick = async () => {
+  const button = el('btnCopyProduct');
+  button.disabled = true;
+  try {
+    // Read the current source page rather than accidentally copying an old draft.
+    if (!await el('btnExtractProduct').onclick()) return;
+    const product = {...currentSpunProduct,
+      spunName: el('spunTitleInput').value.trim(),
+      spunDescription: el('spunDescInput').value.trim()};
+    await navigator.clipboard.writeText(ShopFlowProductTransfer.encode(product));
+    await chrome.storage.local.set({savedClonerDraft: product});
+    renderSavedDraftBanner(product);
+    el('clonerLog').textContent = '✅ Đã sao chép sản phẩm. Sang profile shop mới → Thêm sản phẩm → mở extension → Dán & điền sản phẩm. Không sao chép nội dung khác trước khi dán.';
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Không sao chép được: ' + e.message;
+  } finally { button.disabled = false; }
+};
+el('btnPasteProduct').onclick = async () => {
+  const button = el('btnPasteProduct');
+  button.disabled = true;
+  try {
+    // Read immediately from the user's click, before asynchronous tab operations.
+    const product = ShopFlowProductTransfer.decode(await navigator.clipboard.readText());
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    const url = new URL(tab?.url || 'https://invalid.local');
+    if (url.hostname !== 'banhang.shopee.vn' || url.pathname.replace(/\/$/, '') !== '/portal/product/new') {
+      throw Error('Hãy mở trang Thêm sản phẩm ở shop mới rồi bấm Dán & điền.');
+    }
+    await chrome.storage.local.set({savedClonerDraft: product});
+    currentSpunProduct = product;
+    currentRawProduct = null;
+    el('clonerPreviewCard').style.display = 'none';
+    renderSavedDraftBanner(product);
+    await el('btnAutoFill').onclick();
+  } catch (e) {
+    el('clonerLog').textContent = '⚠️ Không dán được: ' + e.message + ' Nếu Chrome chặn bộ nhớ tạm, hãy cho phép extension đọc khi bạn bấm Dán.';
+  } finally { button.disabled = false; }
+};
