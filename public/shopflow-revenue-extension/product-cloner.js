@@ -458,18 +458,40 @@
       if(actual.length!==expected.length||actual.some((name,index)=>name!==expected[index]))throw Error('Nhóm '+tier.name+' chưa khớp mẫu; dừng trước khi điền giá để tránh chia nhầm.');
       filled.push(tier.name+': '+tier.options.join(', '));
     }
-    await waitFor(()=>doc.querySelectorAll('[data-product-edit-field-unique-id^="priceModel_"] input').length>=tiers.reduce((n,t)=>n*t.options.length,1));
-    const scope=doc.querySelector('.variation-model-table')||doc.querySelector('.variation-model-table-main')||doc;
-    const visible=selector=>Array.from(scope.querySelectorAll(selector)).filter(i=>i.offsetParent!==null&&!i.closest('.batch-container'));
-    const prices=visible('[data-product-edit-field-unique-id^="priceModel_"] input, .basic-price input, .table-cell .price-input input');
-    const stocks=visible('[data-product-edit-field-unique-id^="stockModel_"] input, .stock-input input');
-    const skus=visible('[data-product-edit-field-unique-id^="skuModel_"] textarea, [data-product-edit-field-unique-id^="skuModel_"] input, .sku-textarea textarea, .sku-textarea input');
     const combinations=tiers.reduce((rows,tier)=>rows.flatMap(row=>tier.options.map((name,index)=>({names:[...row.names,name],indexes:[...row.indexes,index]}))),[{names:[],indexes:[]}]);
-    if(prices.length!==combinations.length)throw Error('Bảng đang có '+prices.length+' dòng nhưng mẫu cần '+combinations.length+'. Dừng, chưa điền giá/kho.');
+    // Shopee splits frozen labels and editable columns into separate tables.
+    // Query the complete document, and reacquire after every input event: Vue can replace rows.
+    const selectors={
+      price:'[data-product-edit-field-unique-id^="priceModel_"] input, .basic-price input, .table-cell .price-input input',
+      stock:'[data-product-edit-field-unique-id^="stockModel_"] input, .stock-input input, .two-tier-stock input',
+      sku:'[data-product-edit-field-unique-id^="skuModel_"] textarea, [data-product-edit-field-unique-id^="skuModel_"] input, .sku-textarea textarea, .sku-textarea input'
+    };
+    const fields=kind=>Array.from(doc.querySelectorAll(selectors[kind])).filter(input=>input.offsetParent!==null&&!input.disabled&&!input.closest('.batch-container, .batch-price, .batch-stock'));
+    if(!await waitFor(()=>fields('price').length===combinations.length))throw Error('Bảng đang có '+fields('price').length+' ô giá nhưng mẫu cần '+combinations.length+'. Chưa điền giá; hãy mở đầy đủ bảng phân loại rồi thử lại.');
     const models=productData.models||[];
-    const matches=combinations.map(combo=>models.filter(m=>Array.isArray(m.tier_index)?m.tier_index.length===combo.indexes.length&&m.tier_index.every((v,i)=>v===combo.indexes[i]):cleanLabel(m.name)===cleanLabel(combo.names.join(' / '))));
+    const matches=combinations.map(combo=>models.filter(m=>Array.isArray(m.tier_index)?m.tier_index.length===combo.indexes.length&&m.tier_index.every((v,i)=>Number(v)===combo.indexes[i]):cleanLabel(m.name)===cleanLabel(combo.names.join(' / '))));
     if(matches.some(m=>m.length!==1))throw Error('Chưa đối chiếu được giá theo tên từng phân loại. Lấy lại dữ liệu mẫu, không điền giá theo thứ tự đoán.');
-    for(let i=0;i<matches.length;i++){const model=matches[i][0];if(Number.isFinite(Number(model.price))&&Number(model.price)>0)setNativeValue(prices[i],String(model.price));if(stocks[i]&&model.stock!==undefined&&Number.isFinite(Number(model.stock)))setNativeValue(stocks[i],String(model.stock));if(skus[i]&&model.sku)setNativeValue(skus[i],model.sku);}
+    if(matches.some(m=>!Number.isFinite(Number(m[0].price))||Number(m[0].price)<=0))throw Error('Mẫu thiếu giá hợp lệ ở một số phân loại. Hãy lấy lại sản phẩm từ shop gốc; chưa điền giá để tránh sai.');
+    const numeric=value=>Number(String(value).replace(/[^0-9.-]/g,''));
+    const writeField=async(kind,index,value)=>{
+      for(let retry=0;retry<3;retry++){
+        const input=fields(kind)[index];
+        if(!input)throw Error('Không tìm thấy ô '+kind+' của phân loại '+combinations[index].names.join(' / '));
+        input.focus();setNativeValue(input,String(value),true);input.blur();input.dispatchEvent(new Event('blur',{bubbles:true}));
+        await pause();
+        const actual=fields(kind)[index];
+        if(actual&&(kind==='sku'?actual.value===String(value):numeric(actual.value)===Number(value)))return;
+      }
+      throw Error('Shopee chưa giữ '+kind+' của phân loại '+combinations[index].names.join(' / ')+'. Hãy bấm điền lại; chưa hoàn tất bảng giá.');
+    };
+    for(let i=0;i<matches.length;i++){
+      const model=matches[i][0];onProgress('Đang điền giá '+(i+1)+'/'+matches.length+': '+combinations[i].names.join(' / '));
+      await writeField('price',i,model.price);
+      if(fields('stock')[i]&&model.stock!==undefined&&Number.isFinite(Number(model.stock)))await writeField('stock',i,model.stock);
+      if(fields('sku')[i]&&model.sku)await writeField('sku',i,model.sku);
+    }
+    const missing=matches.flatMap((m,i)=>numeric(fields('price')[i]?.value)!==Number(m[0].price)?[combinations[i].names.join(' / ')]:[]);
+    if(missing.length)throw Error('Giá chưa được giữ ở: '+missing.join(', ')+'. Chưa hoàn tất; bấm Điền Riêng Phân Loại & Bảng Giá để thử lại.');
     filled.push(combinations.length+' dòng giá/kho/SKU đã khớp phân loại mẫu');
     return {success:true,filled,rowCount:combinations.length};
   }
